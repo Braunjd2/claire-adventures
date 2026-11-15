@@ -494,7 +494,7 @@ function wig(t, cls = 'wig') { t.ti.classList.remove(cls); void t.ti.getBounding
 const toSvg = (cx, cy) => { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); };
 
 /* ================= LAB ================= */
-let lab = null, firstRun = !st.hero;
+let lab = null, firstRun = !st.hero, goLock = false;
 function enterLab(mode, kind) {
   scene = 'lab'; clearStage(); grav = 1;
   L.bg.innerHTML = `<rect x="-400" y="0" width="2400" height="900" fill="url(#gLab)"/>
@@ -584,11 +584,14 @@ function labChallenge() {
 setInterval(() => {
   if (scene !== 'lab' || !lab || !hero || $('#kindPick').hidden === false) return;
   const now = performance.now();
+  if (!lab.goHint && lab.taps >= 6 && !lab.ch && now - lastAct > 2500) { lab.goHint = true; lab.chT = now + 12000; say(lab.mode === 'tiny' ? 'When your tiny buddy is ready, tap the big green check!' : 'When your buddy is ready, tap the big green check, and we will go exploring!'); return; }
   if (!lab.ch && now > lab.chT && lab.taps >= 3) labChallenge();
   else if (lab.ch && now - lab.ch.t > 9000 && now - lastAct > 6000) { highlightTab(lab.ch.cat); lab.ch.t = now; say(askLine); }
 }, 1000);
 $('#goBtn').addEventListener('pointerdown', async (e) => {
-  e.preventDefault(); initAudio(); if (busy || !hero) return;
+  e.preventDefault(); initAudio(); if (goLock || !hero) return;
+  goLock = true; SFX.pop();
+  for (let i = 0; i < 40 && busy; i++) await wait(100);
   busy = true; clearAsk(); highlightTab(null); $('#labUi').hidden = true; $('#goBtn').hidden = true; $('#homeBtn').hidden = true;
   const a = hero, sp = lab.sp;
   try {
@@ -606,10 +609,10 @@ $('#goBtn').addEventListener('pointerdown', async (e) => {
       await jump(a, 200, 900, { spin: 360 }); await squash(a);
       await buddySay(a, first ? `Hi ${S.name}! I'm ${sp.name}! I'm alive!` : `Ta da! It's me, ${sp.name}!`);
       a.el.classList.remove('dance');
-      if (first) { addStar(); await say(`${sp.name} needs a tiny friend! Let's make one!`); busy = false; enterLab('tiny'); return; }
+      if (first) { addStar(); await say(`${sp.name} needs a tiny friend! Let's make one!`); busy = false; goLock = false; enterLab('tiny'); return; }
     }
     firstRun = false; busy = false; await fade(); enterMap(true);
-  } finally { busy = false; }
+  } finally { busy = false; goLock = false; }
 });
 
 /* ================= MAP ================= */
