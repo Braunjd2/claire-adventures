@@ -245,14 +245,14 @@ let voice = null;
 function pickVoice() { const vs = window.speechSynthesis ? speechSynthesis.getVoices() : []; voice = vs.find(v => /^en/i.test(v.lang) && /(Samantha|Karen|Moira|Tessa|Allison|Ava|Google US English)/.test(v.name)) || vs.find(v => /^en/i.test(v.lang)) || null; }
 if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 let speakToken = 0;
-function say(text, { pitch = 1.55, rate = 1.0 } = {}) {
+function say(text, { pitch = 1.55, rate = 1.0, who = 'beep' } = {}) {
   return new Promise((resolve) => {
     if (!window.speechSynthesis) return setTimeout(resolve, 600);
     const my = ++speakToken, words = text.replaceAll('{n}', S.name), u = new SpeechSynthesisUtterance(words);
     if (voice) u.voice = voice; u.pitch = pitch; u.rate = rate;
     let done = false; const fin = () => { if (done) return; done = true; if (my === speakToken) beep.talking = false; resolve(my === speakToken); };
     u.onend = fin; u.onerror = fin; setTimeout(fin, 1500 + words.length * 85);
-    beep.talking = true;
+    beep.talking = who === 'beep';
     if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 60); } else speechSynthesis.speak(u);
   });
 }
@@ -297,6 +297,10 @@ const DEFS = `
   <pattern id="pLinen" width="60" height="38" patternUnits="userSpaceOnUse"><rect width="60" height="38" fill="#f7f2ea"/><rect y="35" width="60" height="3" fill="#dccda8"/><rect x="10" y="12" width="30" height="1" fill="#e8dfd2"/></pattern>
   <clipPath id="cBedWin"><rect x="462" y="152" width="376" height="318" rx="4"/></clipPath>
   <clipPath id="cTv"><rect x="1095" y="380" width="190" height="130" rx="10"/></clipPath>
+  <linearGradient id="gSpace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f0833"/><stop offset=".5" stop-color="#2b1460"/><stop offset="1" stop-color="#4a2380"/></linearGradient>
+  <radialGradient id="gNebP"><stop offset="0" stop-color="#ff8fd0" stop-opacity=".35"/><stop offset="1" stop-color="#ff8fd0" stop-opacity="0"/></radialGradient>
+  <radialGradient id="gNebB"><stop offset="0" stop-color="#6fb7ff" stop-opacity=".3"/><stop offset="1" stop-color="#6fb7ff" stop-opacity="0"/></radialGradient>
+  <linearGradient id="gTail" gradientUnits="userSpaceOnUse" x1="-130" y1="-56" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff6c0" stop-opacity="1"/></linearGradient>
 </defs>`;
 
 function livingRoom() {
@@ -522,6 +526,7 @@ function claireSVG() {
       <path class="o hair" d="M-74,-12 C-78,-82 -18,-98 32,-80 C66,-68 80,-40 74,-6 C60,-36 32,-50 8,-46 C-8,-30 -40,-24 -74,-12 Z"/>
       <path class="hairhi" d="M-44,-62 C-14,-76 18,-72 46,-56 M-66,30 C-74,54 -66,74 -76,92"/>
     </g>
+    <g id="cHelmet" style="display:none" transform="translate(0 -262)"><circle r="98" fill="#cfefff" fill-opacity=".22" stroke="#fff" stroke-width="7"/><circle r="98" fill="none" stroke="#4a3550" stroke-width="3"/><path d="M-62,-52 q30,-34 72,-40" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round" opacity=".85"/></g>
   </g></g></g>`;
 }
 function beepSVG() {
@@ -540,7 +545,7 @@ function beepSVG() {
         <rect class="o" fill="#beb2f4" x="-60" y="-88" width="120" height="88" rx="26"/>
         <rect fill="#24103d" x="-48" y="-78" width="96" height="66" rx="16"/>
         <g id="bFace"></g>
-        <g id="bHat"></g>
+        <g id="bHat"></g><g id="bHelmet" style="display:none"><circle cx="0" cy="-48" r="92" fill="#cfefff" fill-opacity=".22" stroke="#fff" stroke-width="7"/><circle cx="0" cy="-48" r="92" fill="none" stroke="#4a3550" stroke-width="3"/><path d="M-56,-100 q28,-30 64,-34" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round" opacity=".85"/></g>
       </g>
     </g>
   </g>
@@ -554,6 +559,117 @@ const FACE = {
   love: () => `<path d="M-20,-44 c-14,-10 -10,-22 0,-16 c10,-6 14,6 0,16 z M20,-44 c-14,-10 -10,-22 0,-16 c10,-6 14,6 0,16 z" fill="#ff6fb5"/><path d="M-16,-32 q16,12 32,0" stroke="#7ff3ff" stroke-width="6" fill="none" stroke-linecap="round"/>`,
   dizzy: () => `<path d="M-20,-52 m-10,0 a10,10 0 1 1 10,10 a6,6 0 1 1 -4,-6 M20,-52 m-10,0 a10,10 0 1 1 10,10 a6,6 0 1 1 -4,-6" stroke="#7ff3ff" stroke-width="4" fill="none"/><path d="M-14,-28 q7,-6 14,0 q7,6 14,0" stroke="#7ff3ff" stroke-width="5" fill="none"/>`,
 };
+
+/* ---------- space world (through the bedroom window) ---------- */
+const SX = 5400, SW = 2600;
+let scene = 'home';
+function fluffPath(cx, cy, r, n = 16, b = 0.14) {
+  const p = (i) => { const a = i / n * Math.PI * 2; return `${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`; };
+  const c = (i) => { const a = (i + 0.5) / n * Math.PI * 2; return `${(cx + Math.cos(a) * r * (1 + b)).toFixed(1)},${(cy + Math.sin(a) * r * (1 + b)).toFixed(1)}`; };
+  let d = `M${p(0)}`; for (let i = 0; i < n; i++) d += ` Q${c(i)} ${p(i + 1)}`; return d + ' Z';
+}
+const ZUE = [[1370, 436], [1400, 426], [1430, 436]];
+const planetG = (id, x, y, r, col, spot) => thingG(id, x, y, `<g id="${id}B">
+  <circle class="o" cx="${x}" cy="${y}" r="${r}" fill="${col}"/><circle cx="${x - r * 0.35}" cy="${y - r * 0.2}" r="${r * 0.18}" fill="${spot}"/><circle cx="${x + r * 0.32}" cy="${y + r * 0.38}" r="${r * 0.12}" fill="${spot}"/>
+  <path d="M${x - r * 0.6},${y - r * 0.35} q${r * 0.3},${-r * 0.35} ${r * 0.65},${-r * 0.3}" stroke="#fff" stroke-width="6" fill="none" opacity=".6" stroke-linecap="round"/>
+  <g id="${id}F" opacity="0"><circle cx="${x - r * 0.28}" cy="${y - r * 0.02}" r="${Math.max(4, r * 0.12)}" fill="${ink}"/><circle cx="${x + r * 0.28}" cy="${y - r * 0.02}" r="${Math.max(4, r * 0.12)}" fill="${ink}"/><path d="M${x - r * 0.22},${y + r * 0.26} q${r * 0.22},${r * 0.22} ${r * 0.44},0" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="${x - r * 0.5}" cy="${y + r * 0.15}" r="${r * 0.1}" fill="#ff6fb5" opacity=".5"/><circle cx="${x + r * 0.5}" cy="${y + r * 0.15}" r="${r * 0.1}" fill="#ff6fb5" opacity=".5"/></g>
+  ${hit(x - r - 14, y - r - 14, 2 * r + 28, 2 * r + 28)}</g>`);
+
+function spaceWorld() {
+  return `<g id="space" transform="translate(${SX} 0)">
+  <rect x="-300" y="-1400" width="${SW + 600}" height="2800" fill="url(#gSpace)"/>
+  <ellipse cx="520" cy="220" rx="460" ry="210" fill="url(#gNebP)"/><ellipse cx="1650" cy="380" rx="560" ry="230" fill="url(#gNebB)"/><ellipse cx="2400" cy="120" rx="380" ry="190" fill="url(#gNebP)"/>
+  <g id="spaceStars"></g>
+  <g transform="translate(1080 110)"><g class="spin" id="galaxy2"></g></g>
+  ${thingG('bigplanet', 1950, 230, `<circle class="o" cx="1950" cy="230" r="120" fill="#ffb08a"/>
+    <path d="M1842,190 q108,-30 216,0 M1834,256 q116,30 232,0" stroke="#ff9068" stroke-width="16" fill="none" opacity=".6"/>
+    <circle cx="1890" cy="252" r="15" fill="#ff6fb5" opacity=".45"/><circle cx="2010" cy="252" r="15" fill="#ff6fb5" opacity=".45"/>
+    <g id="bpSleep"><path d="M1905,222 q14,10 28,0 M1967,222 q14,10 28,0" stroke="${ink}" stroke-width="6" fill="none" stroke-linecap="round"/></g>
+    <g id="bpAwake" style="display:none"><circle class="o t" cx="1919" cy="220" r="15" fill="#fff"/><circle cx="1921" cy="222" r="7" fill="#2b1a40"/><g id="bpER"><circle class="o t" cx="1981" cy="220" r="15" fill="#fff"/><circle cx="1983" cy="222" r="7" fill="#2b1a40"/></g></g>
+    <path id="bpMouth" d="M1935,262 q15,12 30,0" stroke="${ink}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <ellipse id="bpYawn" class="o t" cx="1950" cy="268" rx="16" ry="20" fill="#7a2e48" style="display:none"/>
+    <g id="bpRing"><ellipse cx="1950" cy="244" rx="205" ry="40" fill="none" stroke="${ink}" stroke-width="22" transform="rotate(-12 1950 244)"/><ellipse cx="1950" cy="244" rx="205" ry="40" fill="none" stroke="#ffd23f" stroke-width="12" transform="rotate(-12 1950 244)"/></g>
+    ${hit(1740, 100, 420, 270)}`)}
+  ${planetG('planet1', 620, 280, 54, '#6fe0d0', '#4cc4b4')}
+  ${planetG('planet2', 880, 170, 40, '#ffe06a', '#f2c73e')}
+  ${planetG('planet3', 1220, 300, 62, '#ff9ec7', '#f27fb0')}
+  ${thingG('ufo', 1300, 140, `<g id="ufoMove">
+    <polygon id="ufoBeam" points="1262,158 1338,158 1430,720 1170,720" fill="#bff7ff" opacity="0"/>
+    <path class="o" fill="#bfefff" fill-opacity=".9" d="M1258,132 a42,40 0 0 1 84,0 z"/>
+    <circle cx="1300" cy="116" r="13" fill="#8fe388"/><circle cx="1300" cy="113" r="5.5" fill="#fff"/><circle cx="1301" cy="114" r="2.6" fill="#2b1a40"/><path d="M1300,103 q4,-10 -2,-14" stroke="#8fe388" stroke-width="3" fill="none"/>
+    <ellipse class="o" fill="#d8d2f6" cx="1300" cy="142" rx="94" ry="26"/>
+    ${[0, 1, 2, 3, 4].map((i) => `<circle class="ufoL" cx="${1236 + i * 32}" cy="146" r="7" fill="#ffd23f"/>`).join('')}
+    ${hit(1196, 80, 208, 96)}</g>`)}
+  ${thingG('zuzu', 1400, 520, `<g id="zuFloat">
+    <g id="zuWingL"><ellipse class="o t" fill="#fff" fill-opacity=".92" cx="1328" cy="410" rx="32" ry="16" transform="rotate(-25 1328 410)"/></g>
+    <g id="zuWingR"><ellipse class="o t" fill="#fff" fill-opacity=".92" cx="1472" cy="410" rx="32" ry="16" transform="rotate(25 1472 410)"/></g>
+    <path d="M1385,496 v22 M1415,496 v22" stroke="${ink}" stroke-width="5"/><circle class="o t" cx="1385" cy="522" r="8" fill="#ff8fc6"/><circle class="o t" cx="1415" cy="522" r="8" fill="#ff8fc6"/>
+    <path class="o" fill="#ffa6d8" d="${fluffPath(1400, 440, 62)}"/>
+    <path d="M1400,376 q-16,-26 6,-36 q18,-4 10,12" stroke="${ink}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    ${ZUE.map(([x, y], i) => `<g id="zuE${i}" transform="translate(${x} ${y})"><circle class="o t" r="14" fill="#fff"/><g class="zuP"><circle cx="2" cy="2" r="6.5" fill="#2b1a40"/><circle cx="-1" cy="-1" r="2.5" fill="#fff"/></g></g>`).join('')}
+    <g id="zuCheeks"><circle cx="1354" cy="468" r="11" fill="#ff6fb5" opacity=".55"/><circle cx="1446" cy="468" r="11" fill="#ff6fb5" opacity=".55"/></g>
+    <path id="zuMouth" d="M1386,468 q14,14 28,0" stroke="${ink}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    ${hit(1300, 350, 200, 190)}</g>`)}
+  ${thingG('homewin', 200, 320, `<g id="hwFloat">${[[104, 214], [298, 232], [118, 428], [292, 418]].map(([x, y], i) => `<polygon class="tw" style="animation-delay:${i * 0.4}s" points="${starPts(13, 5)}" transform="translate(${x} ${y})" fill="#ffd23f"/>`).join('')}
+    <rect class="o" fill="#fff" x="120" y="230" width="160" height="182" rx="10"/>
+    <rect fill="#efe4f8" x="134" y="244" width="132" height="154"/><rect x="134" y="244" width="132" height="22" fill="url(#pWater)"/>
+    <rect class="o t" fill="#d3c6ea" x="182" y="352" width="78" height="26" rx="6"/><rect class="o t" fill="#fff" x="252" y="322" width="10" height="56"/>
+    <ellipse class="o t" cx="160" cy="352" rx="16" ry="22" fill="#9a7cf0"/><circle class="o t" cx="150" cy="330" r="6" fill="#9a7cf0"/><circle class="o t" cx="170" cy="330" r="6" fill="#9a7cf0"/>
+    <path class="o t" d="M200,244 V398 M134,320 H266" fill="none" opacity=".45"/>
+    ${hit(96, 200, 210, 236)}</g>`)}
+  <path class="o" fill="#cbb9f2" data-floor="1" d="M-300,652 C100,622 300,664 600,642 C900,620 1200,666 1500,646 C1800,626 2100,662 2400,642 C2600,630 2800,652 2900,648 L2900,1400 L-300,1400 Z"/>
+  <g fill="#b7a2e6"><ellipse cx="260" cy="800" rx="70" ry="16"/><ellipse cx="980" cy="860" rx="90" ry="18"/><ellipse cx="2250" cy="820" rx="80" ry="16"/><ellipse cx="1400" cy="700" rx="40" ry="9"/><ellipse cx="560" cy="700" rx="34" ry="8"/></g>
+  ${thingG('crystals', 1150, 692, `<polygon id="cr0" class="o" fill="#ff9ee0" points="1110,692 1100,632 1120,602 1136,642 1130,692"/>
+    <polygon id="cr1" class="o" fill="#9fdcff" points="1132,692 1140,602 1160,562 1176,612 1170,692"/>
+    <polygon id="cr2" class="o" fill="#c7a8ff" points="1168,692 1180,642 1200,626 1210,662 1200,692"/>
+    <path d="M1146,620 l6,-30" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+    ${hit(1084, 548, 140, 150)}`)}
+  ${thingG('crater', 1650, 748, `<ellipse class="o" fill="#a991dc" cx="1650" cy="748" rx="112" ry="28"/><ellipse fill="#8f76c6" cx="1650" cy="752" rx="86" ry="16"/>
+    <g id="crPop"></g>
+    <path class="o" fill="#cbb9f2" d="M1538,748 q112,48 224,0 q-112,32 -224,0 z"/>
+    ${hit(1530, 610, 240, 170)}`)}
+  ${thingG('blip', 760, 702, `${shadow(760, 704, 62)}
+    <g id="blipArmL"><ellipse class="o" fill="#8fe388" cx="702" cy="660" rx="12" ry="20" transform="rotate(30 702 660)"/></g>
+    <g id="blipArmR"><ellipse class="o" fill="#8fe388" cx="818" cy="660" rx="12" ry="20" transform="rotate(-30 818 660)"/></g>
+    <ellipse class="o" fill="#6fcf6a" cx="735" cy="700" rx="18" ry="10"/><ellipse class="o" fill="#6fcf6a" cx="785" cy="700" rx="18" ry="10"/>
+    <path d="M760,592 Q774,560 752,536" stroke="${ink}" stroke-width="5" fill="none"/><circle class="o" cx="750" cy="532" r="11" fill="#ff6fb5"/>
+    <path class="o" fill="#8fe388" d="M704,696 C690,636 712,590 760,590 C808,590 830,636 816,696 Q760,712 704,696 Z"/>
+    <ellipse cx="760" cy="672" rx="34" ry="22" fill="#b6f0ae"/>
+    <circle cx="726" cy="660" r="9" fill="#ff9ec7" opacity=".7"/><circle cx="794" cy="660" r="9" fill="#ff9ec7" opacity=".7"/>
+    <g id="blipEye" transform="translate(760 628)"><circle class="o" r="28" fill="#fff"/><g id="blipPupil"><circle cx="4" cy="4" r="13" fill="#2b1a40"/><circle cx="-1" cy="-1" r="4.5" fill="#fff"/></g></g>
+    <path id="blipMouth" d="M744,670 q16,14 32,0" stroke="${ink}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <g id="blipTongue" style="display:none"><path class="o t" fill="#7a2e48" d="M742,666 q18,22 36,0 z"/><ellipse class="o t" fill="#ff6fa8" cx="760" cy="686" rx="11" ry="14"/></g>
+    ${hit(686, 516, 148, 196)}`)}
+  ${thingG('gloop', 2050, 702, `${shadow(2050, 704, 62)}
+    <g id="glArmL"><path d="M2012,640 q-40,-10 -46,-50" stroke="${ink}" stroke-width="16" fill="none" stroke-linecap="round"/><path d="M2012,640 q-40,-10 -46,-50" stroke="#7fc8ff" stroke-width="8" fill="none" stroke-linecap="round"/></g>
+    <g id="glArmR"><path d="M2088,640 q40,-10 46,-50" stroke="${ink}" stroke-width="16" fill="none" stroke-linecap="round"/><path d="M2088,640 q40,-10 46,-50" stroke="#7fc8ff" stroke-width="8" fill="none" stroke-linecap="round"/></g>
+    <ellipse class="o" fill="#5fb0f0" cx="2030" cy="700" rx="17" ry="9"/><ellipse class="o" fill="#5fb0f0" cx="2070" cy="700" rx="17" ry="9"/>
+    <g id="glNeck"><rect class="o" fill="#7fc8ff" x="2037" y="520" width="26" height="82" rx="12"/></g>
+    <rect class="o" fill="#7fc8ff" x="2005" y="590" width="90" height="112" rx="42"/>
+    <circle cx="2035" cy="652" r="8" fill="#b9e4ff"/><circle cx="2066" cy="672" r="10" fill="#b9e4ff"/><circle cx="2060" cy="630" r="5" fill="#b9e4ff"/>
+    <g id="glHead">
+      <g id="glStalkL"><path d="M2032,476 L2014,436" stroke="${ink}" stroke-width="10" stroke-linecap="round"/><path d="M2032,476 L2014,436" stroke="#7fc8ff" stroke-width="4" stroke-linecap="round"/><circle class="o t" cx="2014" cy="430" r="15" fill="#fff"/><circle cx="2016" cy="432" r="7" fill="#2b1a40"/></g>
+      <g id="glStalkR"><path d="M2068,476 L2086,436" stroke="${ink}" stroke-width="10" stroke-linecap="round"/><path d="M2068,476 L2086,436" stroke="#7fc8ff" stroke-width="4" stroke-linecap="round"/><circle class="o t" cx="2086" cy="430" r="15" fill="#fff"/><circle cx="2084" cy="432" r="7" fill="#2b1a40"/></g>
+      <ellipse class="o" fill="#7fc8ff" cx="2050" cy="500" rx="54" ry="38"/>
+      <circle cx="2014" cy="508" r="9" fill="#ff9ec7" opacity=".6"/><circle cx="2086" cy="508" r="9" fill="#ff9ec7" opacity=".6"/>
+      <path id="glMouth" d="M2026,506 q24,22 48,0" stroke="${ink}" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <ellipse id="glMouthO" class="o t" fill="#3a1440" cx="2050" cy="512" rx="20" ry="15" style="display:none"/>
+    </g>
+    ${hit(1986, 400, 128, 306)}`)}
+  ${thingG('rocket', 2380, 644, `${shadow(2380, 648, 70)}
+    <g id="rkFlame" style="display:none"><path class="o t" fill="#ffd23f" d="M2356,642 q24,80 48,0 z"/><path fill="#ff8a3d" d="M2366,642 q14,46 28,0 z"/></g>
+    <path class="o" fill="#ff5a6e" d="M2342,640 l-32,12 l0,-62 l32,-22 z"/><path class="o" fill="#ff5a6e" d="M2418,640 l32,12 l0,-62 l-32,-22 z"/>
+    <path class="o" fill="#fffaf5" d="M2340,644 L2340,522 Q2380,420 2420,522 L2420,644 Z"/>
+    <path class="o" fill="#ff5a6e" d="M2350,498 Q2380,422 2410,498 Z"/>
+    <circle class="o" cx="2380" cy="550" r="24" fill="#bfefff"/><g id="rkPilot"><circle cx="2380" cy="556" r="13" fill="#8fe388"/><circle cx="2380" cy="552" r="5" fill="#fff"/><circle cx="2381" cy="553" r="2.5" fill="#2b1a40"/></g>
+    <rect class="o t" fill="#ffd23f" x="2358" y="602" width="44" height="14" rx="5"/>
+    ${hit(2300, 410, 160, 244)}`)}
+  <g id="shootStar" data-thing="shootStar" transform="translate(-3000 -3000)"><g class="a">
+    <path d="M0,0 L-130,-56" stroke="url(#gTail)" stroke-width="16" stroke-linecap="round"/>
+    <polygon class="o" fill="#ffd23f" points="${starPts(30, 13)}"/><circle cx="-8" cy="-6" r="5" fill="#fff"/>
+    <circle class="hit" r="80"/></g></g>
+  </g>`;
+}
 
 /* ---------- build the stage ---------- */
 const stage = $('#stage');
@@ -573,7 +689,7 @@ stage.innerHTML = `<svg id="world" xmlns="${SVGNS}" viewBox="0 0 1300 900" prese
 </style>
 ${DEFS}
 <g id="worldG">
-${livingRoom()}${kitchen()}${bedroom()}
+${livingRoom()}${kitchen()}${bedroom()}${spaceWorld()}
 ${pillar(0)}${pillar(KX)}${pillar(BX)}${pillar(WORLD_W)}
 <rect x="0" y="-1400" width="${WORLD_W}" height="2400" fill="url(#gVig)" pointer-events="none"/>
 <g id="chars">${beepSVG()}${claireSVG()}</g>
@@ -601,10 +717,10 @@ const easeOut = (k) => 1 - Math.pow(1 - k, 3);
 const easeBack = (k) => { const c = 1.7; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
 
 /* ---------------- Claire ---------------- */
-const claire = { x: 700, y: 760, path: [], onArrive: null, dir: 1, phase: 0, hops: 0, hopT: 0, hopH: 70, lift: 0, carry: false, waveT: 0, laughT: 0, danceT: 0, poseT: 0, spinT: 0, locked: false, blinkT: 2, windT: 0 };
+const claire = { rollT: 0, sillyT: 0, clapT: 0, wobT: 0, x: 700, y: 760, path: [], onArrive: null, dir: 1, phase: 0, hops: 0, hopT: 0, hopH: 70, lift: 0, carry: false, waveT: 0, laughT: 0, danceT: 0, poseT: 0, spinT: 0, locked: false, blinkT: 2, windT: 0 };
 const C = { root: el('claire'), flip: el('cFlip'), body: el('cBody'), legL: el('cLegL'), legR: el('cLegR'), armL: el('cArmL'), armR: el('cArmR'), head: el('cHead'), hairB: el('cHairBack'), eyes: el('cEyes'), smile: el('cSmile'), laugh: el('cLaugh') };
 const depth = (y) => 0.86 + (y - 690) / 180 * 0.22;
-function walkTo(x, y, onArrive) { if (claire.locked) return; claire.path = [{ x: clamp(x, 80, WORLD_W - 80), y: clamp(y, 690, 870) }]; claire.onArrive = onArrive || null; }
+function walkTo(x, y, onArrive) { if (claire.locked) return; const [lo, hi] = bounds(); claire.path = [{ x: clamp(x, lo, hi), y: clamp(y, 690, 870) }]; claire.onArrive = onArrive || null; }
 function hop(n = 1, h = 70) { claire.hops = n; claire.hopT = 0; claire.hopH = h; }
 function claireLaugh(t = 1.2) { claire.laughT = t; }
 function claireHeadPos() { const s = depth(claire.y); return { x: claire.x, y: claire.y - claire.lift - 300 * s, s }; }
@@ -619,34 +735,38 @@ function updateClaire(dt, t) {
   const sw = walking ? Math.sin(c.phase) * 28 : 0;
   T(C.legL, -17, -82, sw); T(C.legR, 17, -82, -sw);
   let y = walking ? -Math.abs(Math.sin(c.phase)) * 8 : Math.sin(t * 2) * 1.5;
-  if (c.hops > 0) { c.hopT += dt / 0.42; y -= Math.sin(Math.PI * Math.min(1, c.hopT)) * c.hopH; if (c.hopT >= 1) { c.hopT = 0; c.hops--; } }
+  if (scene === 'space' && !c.hops) y += Math.sin(t * 2.2) * 8 - 8;
+  if (c.hops > 0) { c.hopT += dt / (scene === 'space' ? 0.75 : 0.42); y -= Math.sin(Math.PI * Math.min(1, c.hopT)) * c.hopH; if (c.hopT >= 1) { c.hopT = 0; c.hops--; } }
   T(C.body, 0, y);
   let aL = -sw * 0.7 + 8, aR = sw * 0.7 - 8;
   if (c.carry || c.poseT > 0) { aL = 150; aR = -150; }
   else if (c.danceT > 0) { aL = 130 + Math.sin(t * 12) * 30; aR = -130 + Math.cos(t * 12) * 30; }
   else if (c.waveT > 0) { aR = -150 + Math.sin(t * 14) * 25; }
+  else if (c.clapT > 0) { aL = 75 + Math.sin(t * 28) * 18; aR = -75 - Math.sin(t * 28) * 18; }
   T(C.armL, -34, -188, aL); T(C.armR, 34, -188, aR);
   let hr = 0; if (c.laughT > 0) hr = Math.sin(t * 22) * 6; if (c.danceT > 0) hr = Math.sin(t * 12) * 8; if (c.windT > 0) hr = Math.sin(t * 9) * 5;
   T(C.head, 0, -262, hr); T(C.hairB, 0, -262, hr * 0.6, c.windT > 0 ? 1 + Math.sin(t * 15) * 0.05 : 1, 1);
-  c.waveT -= dt; c.poseT -= dt; c.danceT -= dt; c.windT -= dt;
-  if (c.laughT > 0) { c.laughT -= dt; C.smile.style.display = 'none'; C.laugh.style.display = ''; C.eyes.setAttribute('transform', 'scale(1 0.55)'); }
+  c.waveT -= dt; c.poseT -= dt; c.danceT -= dt; c.windT -= dt; c.clapT -= dt; c.sillyT -= dt; c.wobT -= dt;
+  if (c.sillyT > 0) { C.smile.style.display = 'none'; C.laugh.style.display = ''; C.eyes.setAttribute('transform', `translate(${Math.sin(t * 20) * 4} 0) scale(1.3 1.3)`); T(C.head, 0, -262, Math.sin(t * 16) * 12); }
+  else if (c.laughT > 0) { c.laughT -= dt; C.smile.style.display = 'none'; C.laugh.style.display = ''; C.eyes.setAttribute('transform', 'scale(1 0.55)'); }
   else { C.smile.style.display = ''; C.laugh.style.display = 'none'; c.blinkT -= dt; C.eyes.setAttribute('transform', c.blinkT < 0.12 ? 'scale(1 0.1)' : ''); if (c.blinkT < 0) c.blinkT = rand(2, 5); }
   let spin = 1; if (c.spinT > 0) { c.spinT -= dt; spin = Math.cos(c.spinT * 20); }
-  T(C.flip, 0, 0, c.danceT > 0 ? Math.sin(t * 12) * 5 : 0, c.dir * spin, 1);
-  const s = depth(c.y); T(C.root, c.x, c.y - c.lift, 0, s, s);
+  T(C.flip, 0, 0, (c.danceT > 0 ? Math.sin(t * 12) * 5 : 0) + (c.wobT > 0 ? Math.sin(t * 30) * 7 : 0), c.dir * spin, 1);
+  const s = depth(c.y); let roll = 0, rollY = 0; if (c.rollT > 0) { c.rollT -= dt; const k = 1 - Math.max(0, c.rollT) / 0.9; roll = k * 360 * c.dir; rollY = -Math.sin(k * Math.PI) * 70; }
+  C.root.setAttribute('transform', `translate(${c.x} ${c.y - c.lift + rollY}) scale(${s}) rotate(${roll} 0 -170)`);
 }
 
 /* ---------------- Beep ---------------- */
-const beep = { x: 520, y: 800, talking: false, expr: 'idle', exprT: 0, mouth: false, mouthT: 0, hy: 0, hv: 0, spinT: 0, danceT: 0, shakeT: 0, panicT: 0, wobT: 0 };
+const beep = { lift: 0, x: 520, y: 800, talking: false, expr: 'idle', exprT: 0, mouth: false, mouthT: 0, hy: 0, hv: 0, spinT: 0, danceT: 0, shakeT: 0, panicT: 0, wobT: 0 };
 const B = { root: el('beep'), float: el('bFloat'), body: el('bBody'), head: el('bHead'), face: el('bFace'), bulb: el('bBulb'), armL: el('bArmL'), armR: el('bArmR'), hat: el('bHat') };
 function drawFace() { B.face.innerHTML = (FACE[beep.expr] || FACE.idle)(beep.mouth); }
 function setFace(e, d = 2) { beep.expr = e; beep.exprT = d; drawFace(); }
 drawFace();
-function beepHeadPos() { const s = depth(beep.y) * 0.95; return { x: beep.x, y: beep.y - (240 - beep.hy) * s, s }; }
+function beepHeadPos() { const s = depth(beep.y) * 0.95; return { x: beep.x, y: beep.y - beep.lift - (240 - beep.hy) * s, s }; }
 function updateBeep(dt, t) {
   const b = beep;
   if (b.panicT > 0) { b.panicT -= dt; b.x += Math.cos(t * 6) * dt * 500; b.y = clamp(b.y + Math.sin(t * 6) * dt * 200, 690, 880); }
-  else { const tx = clamp(claire.x - claire.dir * 170, 80, WORLD_W - 80), ty = clamp(claire.y + 50, 700, 880); b.x += (tx - b.x) * Math.min(1, dt * 2.4); b.y += (ty - b.y) * Math.min(1, dt * 2.4); }
+  else { const [blo, bhi] = bounds(); const tx = clamp(claire.x - claire.dir * 170, blo, bhi), ty = clamp(claire.y + 50, 700, 880); b.x += (tx - b.x) * Math.min(1, dt * 2.4); b.y += (ty - b.y) * Math.min(1, dt * 2.4); }
   b.hv += (-b.hy * 70 - b.hv * 4) * dt; b.hy += b.hv * dt;
   const shake = b.shakeT > 0 ? Math.sin(t * 60) * 5 : 0; b.shakeT -= dt;
   T(B.float, shake, -10 + Math.sin(t * 3) * 6);
@@ -660,7 +780,7 @@ function updateBeep(dt, t) {
   if (b.exprT > 0) { b.exprT -= dt; if (b.exprT <= 0) { b.expr = 'idle'; drawFace(); } }
   if (b.talking) { b.mouthT -= dt; if (b.mouthT < 0) { b.mouthT = 0.11; b.mouth = !b.mouth; drawFace(); } B.bulb.setAttribute('fill', Math.sin(t * 20) > 0 ? '#fff' : '#ffd23f'); }
   else if (b.mouth) { b.mouth = false; drawFace(); B.bulb.setAttribute('fill', '#ffd23f'); }
-  const s = depth(b.y) * 0.95; T(B.root, b.x, b.y, 0, s, s);
+  const s = depth(b.y) * 0.95; T(B.root, b.x, b.y - b.lift, 0, s, s);
   const beepFront = b.y > claire.y; if (beepFront !== (chars.lastChild === B.root)) chars.appendChild(beepFront ? B.root : C.root);
 }
 
@@ -674,7 +794,7 @@ function burst(x, y, n = 50, power = 700, floorY = null) {
   }
 }
 function wind(x, y) { for (let i = 0; i < 4; i++) { const r = svgEl('rect', { width: 12, height: 8, fill: pick(CONF) }); confetti.push({ el: r, x, y: y + rand(-60, 60), vx: -rand(500, 800), vy: rand(-60, 60), rot: 0, vr: rand(-400, 400), life: 1.6, floor: 900, g: 80 }); } }
-const starPts = (R, r) => Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; return `${(Math.cos(a) * rr).toFixed(1)},${(Math.sin(a) * rr).toFixed(1)}`; }).join(' ');
+function starPts(R, r) { return Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; return `${(Math.cos(a) * rr).toFixed(1)},${(Math.sin(a) * rr).toFixed(1)}`; }).join(' '); }
 const hintStar = svgEl('polygon', { points: starPts(34, 15), fill: '#ffd23f', class: 'o', visibility: 'hidden' });
 let hintTarget = null;
 function setHint(def) { hintTarget = def; hintStar.setAttribute('visibility', def ? 'visible' : 'hidden'); }
@@ -797,7 +917,7 @@ thing('seccam', { approach: [KX + 1250, 760], hint: [KX + 1490, 170], tap() {
 const DET = { x: BX + 640, y: 70 };
 const detector = { chirpOn: false, next: 0, flash: 0, fixed: false };
 thing('detector', { approach: [DET.x, 730], hint: [DET.x, 150], tap(d) { story.tapDetector(d); }, update(dt, t) {
-  if (detector.chirpOn && t > detector.next) { detector.next = t + 3.4; detector.flash = 0.6; const dist = Math.abs(claire.x - DET.x); SFX.chirp(0.05 + 0.25 * clamp(1 - dist / 2600, 0, 1), clamp((DET.x - claire.x) / 1500, -0.8, 0.8)); }
+  if (detector.chirpOn && scene === 'home' && t > detector.next) { detector.next = t + 3.4; detector.flash = 0.6; const dist = Math.abs(claire.x - DET.x); SFX.chirp(0.05 + 0.25 * clamp(1 - dist / 2600, 0, 1), clamp((DET.x - claire.x) / 1500, -0.8, 0.8)); }
   detector.flash -= dt;
   el('detLed').setAttribute('fill', detector.fixed ? '#33ff88' : detector.flash > 0.3 ? '#ff3355' : '#661122');
   el('detWaves').setAttribute('opacity', detector.flash > 0 ? clamp(detector.flash * 2, 0, 1) : 0);
@@ -806,7 +926,8 @@ const win = { up: false, k: 0, planet: null, ufo: null };
 function raiseShade(up) { win.up = up; const sh = el('shade'); const a = up ? 0 : 1; tween(0.8, (q) => { const s = up ? 1 - easeOut(q) * 0.94 : 0.06 + easeOut(q) * 0.94; sh.setAttribute('transform', `translate(0 146) scale(1 ${s}) translate(0 -146)`); }); SFX.whoosh(); }
 function shootingStar() { const s = svgEl('line', { x1: 0, y1: 0, x2: -70, y2: -30, stroke: '#fff', 'stroke-width': 5, 'stroke-linecap': 'round' }, el('winFx')); tween(1.2, (k) => { T(s, 480 + k * 380, 170 + k * 150); s.setAttribute('opacity', k < 0.8 ? 1 : (1 - k) * 5); }, () => s.remove()); SFX.shootingStar(); }
 thing('window', { approach: [BX + 650, 720], hint: [BX + 650, 120], tap() {
-  if (!win.up) { raiseShade(true); after(0.9, shootingStar); say('Whoa! Look outside! It is space! A shooting star! Make a wish, {n}!'); return; }
+  if (!win.up) { raiseShade(true); after(0.9, shootingStar); say('Whoa! Look outside! It is space! Do you want to go there? Tap the window again!'); return; }
+  if (!warping) { travel('space'); return; }
   win.k = (win.k + 1) % 4;
   if (win.k === 1) { SFX.sparkle(); say('A giant purple planet with rings!'); const p = svgEl('g', {}, el('winFx'), `<circle class="o" r="56" fill="#b26bff"/><path d="M-30,-30 q20,-14 40,-4" stroke="#d9b0ff" stroke-width="8" fill="none" stroke-linecap="round"/><ellipse class="o" rx="96" ry="18" fill="none" stroke="#ffd23f" transform="rotate(-14)"/>`); tween(6, (k) => { const y = k < 0.25 ? 560 - k / 0.25 * 250 : k > 0.8 ? 310 + (k - 0.8) / 0.2 * 260 : 310; T(p, 560, y); }, () => p.remove()); }
   if (win.k === 2) { SFX.alien(); setFace('wow', 2); say('A tiny alien spaceship! It is waving at you! Wave back!'); claire.waveT = 3;
@@ -896,6 +1017,242 @@ thing('beep', { approach: null, hint: [0, 0], tap(d) {
   g[(d.taps - 1) % g.length]();
 } });
 
+/* ---------------- Claire's own moves (round robin when she is tapped) ---------------- */
+const clap = () => { for (let i = 0; i < 6; i++) noise(0.05, { freq: 2200, q: 0.8, vol: 0.35, at: i * 0.22 }); };
+const claireMoves = [
+  () => { claire.spinT = 0.6; SFX.sparkle(); const p = claireHeadPos(); burst(p.x, p.y, 16, 350); },
+  () => { hop(1, scene === 'space' ? 260 : 170); SFX.boing(); after(0.2, () => tone(500, 0.5, { f2: 1200, type: 'triangle', vol: 0.1 })); say('Wheee! Super jump!'); },
+  () => { claire.waveT = 2.5; SFX.pop(); say(pick(['Hi {n}! Hello!', 'Wave wave wave!'])); },
+  () => { claire.danceT = 3; beep.danceT = 3; SFX.disco(3); say('Dance party!'); },
+  () => { claire.rollT = 0.9; SFX.whoosh(); after(0.9, () => { SFX.boing(); say('A cartwheel! Wow!'); }); },
+  () => { claire.sillyT = 2; SFX.whoopee(); say('Ha ha! Silly face!'); SFX.giggle(); },
+  () => { claire.clapT = 1.4; clap(); say(pick(['Clap clap clap!', 'Yay, {n}!'])); },
+  () => { claireLaugh(2); claire.wobT = 1.6; SFX.giggle(); say('Tickle tickle! Hee hee hee!'); const p = claireHeadPos(); burst(p.x, p.y, 24, 450); },
+];
+let claireTaps = 0;
+function tapClaire() { claireMoves[claireTaps++ % claireMoves.length](); }
+
+/* ---------------- space world ---------------- */
+const bounds = () => scene === 'space' ? [SX + 90, SX + SW - 90] : [80, WORLD_W - 80];
+const camBounds = () => scene === 'space' ? [SX, SX + SW] : [0, WORLD_W];
+const warpEl = document.createElement('div'); warpEl.id = 'warp'; document.body.appendChild(warpEl);
+const warpCss = document.createElement('style'); warpCss.textContent = '#warp{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:0;background:radial-gradient(circle,#fff 0%,#f3e6ff 30%,#b77cff 65%,#2a0f5a 100%);transition:opacity .55s}#warp.on{opacity:1}';
+document.head.appendChild(warpCss);
+let warping = false, spaceIdle = 0, anticT = 6, starT = 4, starsCaught = 0;
+function setScene(s) {
+  scene = s; el('cHelmet').style.display = s === 'space' ? '' : 'none'; el('bHelmet').style.display = s === 'space' ? '' : 'none';
+  hintStar.setAttribute('visibility', s === 'home' && hintTarget ? 'visible' : 'hidden');
+}
+function travel(to) {
+  if (warping) return; warping = true; claire.path = [];
+  tone(300, 0.9, { f2: 1600, type: 'triangle', vol: 0.12 }); SFX.whoosh(); SFX.sparkle(); hop(1, 60);
+  warpEl.classList.add('on');
+  setTimeout(() => {
+    setScene(to); claire.locked = false;
+    if (to === 'space') { claire.x = SX + 450; beep.x = SX + 280; } else { claire.x = BX + 650; beep.x = BX + 480; }
+    claire.y = 760; beep.y = 810; claire.lift = 0; beep.lift = 0; claire.dir = 1;
+    const vw = Math.max(1250, 900 * innerWidth / innerHeight), [lo, hi] = camBounds();
+    camX = clamp(claire.x - vw / 2, lo, hi - vw);
+    warpEl.classList.remove('on'); warping = false;
+    if (to === 'space') { spaceIdle = 0; setFace('wow', 3); say('Whoa! We are in space, {n}! Look, aliens! Tap them to say hello!'); after(1.0, alienHello); }
+    else { setFace('happy', 2); say(pick(['Home sweet home!', 'We are back in your room!'])); }
+  }, 600);
+}
+(() => {
+  const st = el('spaceStars');
+  for (let i = 0; i < 140; i++) svgEl('circle', { cx: rand(-300, SW + 300), cy: rand(-600, 620), r: rand(1, 3.2), fill: pick(['#fff', '#fff', '#ffe9a8', '#cfe8ff']), class: 'tw', style: `animation-delay:${rand(0, 2).toFixed(2)}s` }, st);
+  const g = el('galaxy2');
+  svgEl('circle', { r: 40, fill: '#ffc8f0', opacity: 0.25 }, g); svgEl('circle', { r: 10, fill: '#fff' }, g);
+  for (let i = 0; i < 120; i++) { const a = i * 0.34, r = 5 + i * 0.55, arm = i % 2 ? Math.PI : 0; svgEl('circle', { cx: Math.cos(a + arm) * r, cy: Math.sin(a + arm) * r * 0.6, r: rand(1, 2.6), fill: i % 3 ? '#ffb4ee' : '#a8e4ff', opacity: 0.85 }, g); }
+})();
+
+/* sounds just for space */
+function wob(f, dur, { rate = 8, depth = 60, type = 'sine', vol = 0.15, at = 0, f2 } = {}) {
+  if (!AC) return; const t = AC.currentTime + at, o = AC.createOscillator(), l = AC.createOscillator(), lg = AC.createGain(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  l.frequency.value = rate; lg.gain.value = depth; l.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); l.start(t); o.stop(t + dur + 0.05); l.stop(t + dur + 0.05);
+}
+const burp = () => { wob(95, 1.0, { rate: 26, depth: 20, type: 'sawtooth', vol: 0.22, f2: 60 }); noise(0.9, { type: 'lowpass', freq: 500, vol: 0.12 }); };
+const kazoo = () => { let t = 0; for (const [n, l] of [[67, 1], [72, 1], [71, 1], [67, 1], [64, 2], [0, 1], [65, 1], [64, 1], [62, 1], [60, 2]]) { if (n) wob(N(n), l * 0.24, { rate: 7, depth: 9, type: 'square', vol: 0.06, at: t }); t += l * 0.26; } };
+const snore = () => { noise(1.0, { type: 'lowpass', freq: 350, vol: 0.12 }); noise(1.0, { type: 'lowpass', freq: 500, vol: 0.08, at: 1.3 }); };
+const honk = () => { tone(520, 0.14, { type: 'square', vol: 0.08 }); tone(520, 0.2, { type: 'square', vol: 0.08, at: 0.2 }); };
+const quack = () => { tone(620, 0.12, { type: 'sawtooth', f2: 380, vol: 0.09 }); tone(620, 0.14, { type: 'sawtooth', f2: 360, vol: 0.09, at: 0.18 }); };
+const moo = () => wob(170, 1.1, { rate: 5, depth: 8, type: 'sawtooth', vol: 0.1, f2: 120 });
+const gib = (txt, pitch = 2, rate = 1.35) => say(txt, { pitch, rate, who: 'alien' });
+
+/* small helpers */
+function hopThing(id, h = 40, n = 1, dur = 0.4) { const a = anim(id); tween(dur * n, (q) => T(a, 0, -Math.abs(Math.sin(q * Math.PI * n)) * h)); }
+function squish(id, amt = 0.25, dur = 0.6) { const a = anim(id); tween(dur, (q) => { const s = Math.sin(q * Math.PI * 3) * amt * (1 - q); T(a, 0, 0, 0, 1 + s, 1 - s); }); }
+const around = (x, y, inner) => `translate(${x} ${y}) ${inner} translate(${-x} ${-y})`;
+function zzz(x, y) { for (let i = 0; i < 3; i++) after(i * 0.5, () => { const z = svgEl('text', { x: 0, y: 0, 'font-size': 44, 'font-weight': 800, 'font-family': 'Baloo 2, sans-serif', fill: '#fff', stroke: ink, 'stroke-width': 3, 'paint-order': 'stroke' }); z.textContent = 'Z'; tween(2, (q) => { T(z, x + q * 60 + Math.sin(q * 8) * 10, y - q * 140, 0, 0.6 + q * 0.6); z.setAttribute('opacity', 1 - q); }, () => z.remove()); }); }
+
+/* aliens */
+const zu = { loop: 0, dx: 0, dy: 0 };
+function blinkZu(i) { const [x, y] = ZUE[i], e = el('zuE' + i); e.setAttribute('transform', `translate(${x} ${y}) scale(1 0.1)`); after(0.15, () => e.setAttribute('transform', `translate(${x} ${y})`)); }
+const zuPos = () => ({ x: SX + 1400 + zu.dx, y: 440 + zu.dy });
+const gl = { dance: 0 };
+function setNeck(s) { el('glNeck').setAttribute('transform', around(0, 600, `scale(1 ${s})`)); el('glHead').setAttribute('transform', `translate(0 ${-80 * (s - 1)})`); }
+function alienHello() {
+  hopThing('blip', 60, 2, 0.35); wob(600, 0.5, { rate: 16, depth: 120, vol: 0.1 });
+  after(0.4, () => { [0, 1, 2].forEach((i) => after(i * 0.15, () => blinkZu(i))); tone(N(79), 0.2, { vol: 0.1 }); });
+  after(0.8, () => { tween(1.2, (q) => setNeck(1 + Math.sin(q * Math.PI) * 0.8)); SFX.boing(); });
+}
+const BLIP = [
+  () => { wob(500, 0.9, { rate: 14, depth: 200, vol: 0.13 }); const e = el('blipEye'); tween(1.3, (q) => e.setAttribute('transform', `translate(760 628) scale(${1 + Math.sin(q * Math.PI) * 0.75})`)); tween(1.3, (q) => el('blipPupil').setAttribute('transform', `rotate(${q * 720})`)); gib('Bloopy bloop!').then(() => say('Ha ha! Blip has a giant eyeball!')); claireLaugh(1.5); },
+  () => { SFX.whoopee(); el('blipMouth').style.display = 'none'; el('blipTongue').style.display = ''; tween(1.4, (q) => T(el('blipTongue'), Math.sin(q * 30) * 4, 0)); after(1.4, () => { el('blipMouth').style.display = ''; el('blipTongue').style.display = 'none'; }); after(0.8, () => say('Ha ha! Blip is blowing a raspberry!')); claireLaugh(1.6); },
+  () => { squish('blip', 0.3, 0.4); after(0.35, () => { SFX.boing(); hopThing('blip', 280, 1, 1.1); }); gib('Wheeeee!', 2, 1.1); },
+  () => { SFX.zap(); tween(1, (q) => T(anim('blip'), 0, 0, q * 360)); tween(2, (q) => el('blipPupil').setAttribute('transform', `rotate(${q * 1080})`)); after(1.1, () => say('Blip is so dizzy!')); claireLaugh(1); },
+  () => { [0, 0.6, 1.2].forEach((s) => after(s, () => { tone(500, 0.08, { f2: 950, type: 'square', vol: 0.08 }); hopThing('blip', 34, 1, 0.25); })); gib('Hic! Hic! Hic!', 2, 1.2).then(() => say('Blip has the hiccups!')); claireLaugh(1.2); },
+];
+const ZUZU = [
+  () => { [0, 1, 2].forEach((i) => after(i * 0.25, () => { tone(N(76 + i * 4), 0.15, { vol: 0.12 }); blinkZu(i); })); after(0.9, () => { SFX.giggle(); gib('Tee hee hee!', 2, 1.4); }); },
+  () => { gib('Ah... ah... ah...', 2, 0.9).then(() => { SFX.whoosh(); const p = zuPos(); burst(p.x, p.y, 45, 600); gib('CHOO!', 2, 1.2).then(() => say('Bless you, Zuzu! A glitter sneeze!')); claireLaugh(1.6); }); },
+  () => { document.querySelectorAll('.zuP').forEach((p, i) => p.setAttribute('transform', `translate(${[6, -6, 0][i]} ${[0, 0, 6][i]})`)); SFX.wobble(); tween(1.2, (q) => T(el('zuMouth'), Math.sin(q * 40) * 3, 0)); after(1.8, () => document.querySelectorAll('.zuP').forEach((p) => p.removeAttribute('transform'))); say('Ha ha! Zuzu crossed all three eyes!'); claireLaugh(1.5); },
+  () => { zu.loop = 1.6; tone(400, 1.4, { f2: 1400, type: 'triangle', vol: 0.1 }); gib('Wheeeeee!', 2, 1); },
+  () => { tone(300, 0.7, { f2: 700, vol: 0.1 }); tween(0.8, (q) => el('zuCheeks').setAttribute('transform', around(1400, 468, `scale(${1 + q * 1.6})`)), () => { SFX.pop(); el('zuCheeks').removeAttribute('transform'); const p = zuPos(); burst(p.x, p.y + 30, 16, 300); say('Pop! Zuzu puffed up big cheeks!'); claireLaugh(1.2); }); },
+];
+const GLOOP = [
+  () => { SFX.boing(); wob(200, 1.2, { f2: 900, rate: 10, depth: 40, type: 'triangle', vol: 0.12 }); tween(1.8, (q) => setNeck(1 + Math.sin(q * Math.PI) * 3.2)); after(0.5, () => say('Whoa! Gloop has a super stretchy neck!')); claireLaugh(1.2); },
+  () => { el('glMouth').style.display = 'none'; el('glMouthO').style.display = ''; burp(); squish('gloop', 0.06, 1); after(1.1, () => { el('glMouth').style.display = ''; el('glMouthO').style.display = 'none'; say('Ha ha ha! Excuse you, Gloop!'); claireLaugh(1.8); }); },
+  () => { kazoo(); gl.dance = 3; say('Gloop is playing the kazoo!'); },
+  () => { SFX.boing(); tween(1.6, (q) => { const a = Math.sin(q * Math.PI); el('glStalkL').setAttribute('transform', `rotate(${a * 70} 2032 476)`); el('glStalkR').setAttribute('transform', `rotate(${-a * 70} 2068 476)`); }); after(0.6, () => say('Oops! Gloop tangled up both eyes!')); claireLaugh(1.4); },
+  () => { [0, 0.25, 0.5, 0.75, 1.0, 1.15, 1.3].forEach((s, i) => after(s, () => tone(i % 2 ? 330 : 220, 0.15, { f2: 150, vol: 0.3 }))); squish('gloop', 0.1, 1.4); gl.dance = 1.5; say('Boom boom! Gloop plays the belly drum!'); },
+];
+thing('blip', { approach: [SX + 620, 780], tap(d) { BLIP[(d.taps - 1) % BLIP.length](); } });
+thing('zuzu', { approach: [SX + 1400, 780], tap(d) { ZUZU[(d.taps - 1) % ZUZU.length](); }, update(dt, t) {
+  let dx = Math.sin(t * 0.5) * 60, dy = Math.sin(t * 1.6) * 16;
+  if (zu.loop > 0) { zu.loop -= dt; const a = (1 - zu.loop / 1.6) * Math.PI * 2; dx += Math.sin(a) * 120; dy += (1 - Math.cos(a)) * -100; }
+  zu.dx = dx; zu.dy = dy; el('zuFloat').setAttribute('transform', `translate(${dx} ${dy})`);
+  const f = Math.sin(t * 18) * 14; el('zuWingL').setAttribute('transform', `rotate(${f} 1356 420)`); el('zuWingR').setAttribute('transform', `rotate(${-f} 1444 420)`);
+} });
+thing('gloop', { approach: [SX + 1880, 780], tap(d) { GLOOP[(d.taps - 1) % GLOOP.length](); }, update(dt, t) {
+  const w = gl.dance > 0 ? Math.sin(t * 12) * 30 : Math.sin(t * 2) * 6; gl.dance -= dt;
+  el('glArmL').setAttribute('transform', `rotate(${w} 2012 640)`); el('glArmR').setAttribute('transform', `rotate(${-w} 2088 640)`);
+} });
+
+/* planets that bounce and sing */
+const PLANETS = [['planet1', 620, 280, 54, 72], ['planet2', 880, 170, 40, 76], ['planet3', 1220, 300, 62, 79]];
+PLANETS.forEach(([id, x, y, r, note], i) => {
+  thing(id, { approach: null, sticker: 'bouncy', tap(d) {
+    const k = (d.taps - 1) % 4, B = el(id + 'B'), F = el(id + 'F');
+    tween(0.6, (q) => { const s = Math.sin(q * Math.PI * 3) * 0.25 * (1 - q); B.setAttribute('transform', around(x, y, `scale(${1 + s} ${1 - s})`)); });
+    tone(N(note + [0, 12, 7, 4][k]), 0.6, { type: 'triangle', vol: 0.18 }); tone(N(note + 12 + [0, 12, 7, 4][k]), 0.4, { vol: 0.05 });
+    F.setAttribute('opacity', 1); after(1.6, () => F.setAttribute('opacity', 0));
+    if (k === 1) { SFX.giggle(); }
+    if (k === 2) { tween(1, (q) => B.setAttribute('transform', around(x, y, `rotate(${q * 360})`))); gib('Wheee!', 2, 1.2); }
+    if (k === 3) { after(0.2, () => { SFX.whoosh(); burst(SX + x, y, 24, 500, 700); gib('Achoo!', 2, 1.3); }); }
+    if (d.taps === 1 && i === 0) say('The planets make music! Tap them all!');
+  }, update(dt, t) { T(anim(id), 0, Math.sin(t * 1.3 + i * 2) * 14); } });
+});
+
+const bp = { awake: false };
+thing('bigplanet', { approach: null, tap(d) {
+  const k = (d.taps - 1) % 4;
+  if (k === 0) { bp.awake = true; el('bpSleep').style.display = 'none'; el('bpAwake').style.display = ''; el('bpYawn').style.display = ''; el('bpMouth').style.display = 'none'; tone(320, 1.3, { f2: 160, type: 'triangle', vol: 0.12 }); after(1.3, () => { el('bpYawn').style.display = 'none'; el('bpMouth').style.display = ''; }); say('The big planet woke up! Good morning, planet!'); }
+  if (k === 1) { el('bpER').setAttribute('transform', around(1981, 220, 'scale(1 0.1)')); after(0.6, () => el('bpER').removeAttribute('transform')); SFX.click(); say('The planet winked at you!'); }
+  if (k === 2) { burp(); tween(1.2, (q) => el('bpRing').setAttribute('transform', `translate(0 ${-Math.abs(Math.sin(q * Math.PI * 4)) * 24})`)); after(1.1, () => say('Ha ha! The planet burped and the rings jumped!')); claireLaugh(1.5); }
+  if (k === 3) { bp.awake = false; el('bpSleep').style.display = ''; el('bpAwake').style.display = 'none'; snore(); zzz(SX + 2060, 150); say('Shhh. The planet is sleepy again.'); }
+}, update(dt, t) { T(anim('bigplanet'), 0, Math.sin(t * 0.6) * 8); } });
+
+const ufo = { dx: 0, busy: false };
+const ITEM_COW = `<ellipse class="o" fill="#fff" cx="0" cy="-30" rx="40" ry="26"/><circle cx="-12" cy="-36" r="9" fill="${ink}"/><circle cx="16" cy="-24" r="7" fill="${ink}"/>
+  <rect class="o t" fill="#fff" x="-30" y="-10" width="9" height="18" rx="4"/><rect class="o t" fill="#fff" x="20" y="-10" width="9" height="18" rx="4"/>
+  <ellipse class="o" fill="#fff" cx="44" cy="-46" rx="20" ry="18"/><ellipse class="o t" fill="#ffc2dc" cx="52" cy="-38" rx="12" ry="8"/><circle cx="40" cy="-52" r="3.5" fill="${ink}"/><path d="M36,-64 l-6,-10 M52,-64 l6,-10" stroke="${ink}" stroke-width="4" stroke-linecap="round"/>`;
+function ufoGoTo(xw, done) { const x0 = ufo.dx, x1 = clamp(xw - (SX + 1300), -1150, 1150); ufo.busy = true; tween(0.7, (q) => { ufo.dx = x0 + (x1 - x0) * easeOut(q); }, done); }
+const beamOn = (on, col = '#bff7ff') => { const b = el('ufoBeam'); b.setAttribute('opacity', on ? 0.45 : 0); b.setAttribute('fill', col); };
+function ufoLift(who) {
+  const tgt = who === 'beep' ? beep : claire;
+  if (who === 'beep') { setFace('wow', 3); say('Whoa! The UFO wants to pick me up!'); } else say('The UFO is going to lift {n}! Hold on!');
+  ufoGoTo(tgt.x, () => {
+    beamOn(true); wob(300, 2.4, { rate: 6, depth: 80, vol: 0.1 });
+    if (who === 'claire') { claire.locked = true; claire.path = []; claireLaugh(2.4); }
+    tween(2.4, (q) => { const l = Math.sin(q * Math.PI) * 230; if (who === 'beep') { beep.lift = l; beep.spinT = q < 0.85 ? 0.1 : 0; } else claire.lift = l; },
+      () => { beamOn(false); ufo.busy = false; SFX.boing(); if (who === 'claire') { claire.lift = 0; claire.locked = false; say('Wheee! Floating is fun!'); } else { beep.lift = 0; setFace('dizzy', 2); say('Wheee! That was fun!'); } });
+  });
+}
+const UFO = [
+  () => ufoLift('beep'),
+  () => { ufoGoTo(claire.x + 300, () => { beamOn(true, '#e9ffd6'); const c = spawnItem('cow', ufo.dx + SX + 1300, 760); moo(); say('A space cow! Moo!'); claireLaugh(2);
+    tween(2.6, (q) => { T(c, ufo.dx + SX + 1300, 760 - q * 580, Math.sin(q * 12) * 12, 1 - q * 0.5); }, () => { c.remove(); beamOn(false); ufo.busy = false; SFX.pop(); }); }); },
+  () => ufoLift('claire'),
+  () => { SFX.disco(3.5); beamOn(true, '#ffb4ee'); ufo.disco = 3.5; beep.danceT = 3.5; claire.danceT = 3.5; say('UFO disco party!'); after(3.5, () => beamOn(false)); },
+];
+thing('ufo', { approach: null, tap(d) { if (ufo.busy) return; UFO[(d.taps - 1) % UFO.length](); }, update(dt, t) {
+  if (!ufo.busy) ufo.dx += (Math.sin(t * 0.25) * 700 - ufo.dx) * Math.min(1, dt * 0.8);
+  el('ufoMove').setAttribute('transform', `translate(${ufo.dx} ${Math.sin(t * 2) * 10})`);
+  ufo.disco = (ufo.disco || 0) - dt;
+  document.querySelectorAll('.ufoL').forEach((l, i) => l.setAttribute('fill', ufo.disco > 0 ? `hsl(${(t * 400 + i * 70) % 360},100%,65%)` : (Math.floor(t * 4) % 5 === i ? '#fff' : '#ffd23f')));
+  if (ufo.disco > 0) el('ufoBeam').setAttribute('fill', `hsl(${(t * 300) % 360},100%,80%)`);
+} });
+
+const rk = { flying: false };
+const ROCKET = [
+  () => { if (rk.flying) return; rk.flying = true; say('Three! Two! One! Blast off!').then(() => {
+    el('rkFlame').style.display = ''; noise(3.4, { type: 'lowpass', freq: 300, vol: 0.3 }); tone(120, 3, { f2: 600, type: 'sawtooth', vol: 0.04 });
+    const a = anim('rocket');
+    tween(3.6, (q) => { const y = q < 0.45 ? -Math.pow(q / 0.45, 2) * 1200 : q < 0.6 ? -1200 : -1200 * (1 - easeOut((q - 0.6) / 0.4)); T(a, Math.sin(q * 60) * 2, y); },
+      () => { el('rkFlame').style.display = 'none'; rk.flying = false; SFX.clunk(); say('Touchdown! Great flying, little rocket!'); }); }); },
+  () => { honk(); hopThing('rocket', 24, 2, 0.3); gib('Hewwo!', 2, 1.2).then(() => say('The little pilot says hello to you!')); },
+  () => { SFX.disco(3); tween(3, (q) => T(anim('rocket'), Math.sin(q * 30) * 10, -Math.abs(Math.sin(q * 15)) * 22, Math.sin(q * 30) * 8)); say('Rocket dance party!'); claire.danceT = 3; beep.danceT = 3; },
+];
+thing('rocket', { approach: [SX + 2220, 780], tap(d) { ROCKET[(d.taps - 1) % ROCKET.length](); }, update(dt, t) { if (rk.flying) el('rkFlame').setAttribute('transform', around(2380, 642, `scale(1 ${1 + Math.sin(t * 40) * 0.25})`)); } });
+
+const CRYS = [[72, 76, 79, 84], [84, 79, 76, 72], [72, 79, 76, 84, 88], [76, 76, 79, 79, 84]];
+thing('crystals', { approach: [SX + 1150, 780], tap(d) {
+  const notes = CRYS[(d.taps - 1) % CRYS.length];
+  notes.forEach((n, i) => after(i * 0.16, () => { tone(N(n), 1.0, { vol: 0.12 }); tone(N(n + 12), 0.6, { vol: 0.04 }); const c = el('cr' + (i % 3)), f0 = c.getAttribute('fill'); c.setAttribute('fill', '#fff'); after(0.15, () => c.setAttribute('fill', f0)); }));
+  after(0.3, () => burst(SX + 1150, 600, 12, 300, 690));
+  if (d.taps === 1) say('The crystals sing!');
+} });
+
+const POPS = [
+  ['bunny', `<ellipse class="o" fill="#fff" cx="-13" cy="-84" rx="9" ry="28"/><ellipse class="o" fill="#fff" cx="13" cy="-84" rx="9" ry="28"/><ellipse fill="#ffc2dc" cx="-13" cy="-84" rx="4" ry="18"/><ellipse fill="#ffc2dc" cx="13" cy="-84" rx="4" ry="18"/><circle class="o" fill="#fff" cx="0" cy="-40" r="32"/><circle cx="-11" cy="-46" r="4.5" fill="${ink}"/><circle cx="11" cy="-46" r="4.5" fill="${ink}"/><ellipse cx="0" cy="-34" rx="6" ry="4" fill="#ff8fb8"/>`, 'A moon bunny! Boing boing!', () => SFX.boing()],
+  ['alien', `<path d="M0,-74 q8,-16 -2,-24" stroke="${ink}" stroke-width="4" fill="none"/><circle cx="-2" cy="-100" r="6" fill="#ffd23f"/><circle class="o" fill="#c7a8ff" cx="0" cy="-42" r="32"/><circle class="o t" fill="#fff" cx="0" cy="-48" r="13"/><circle cx="2" cy="-46" r="6" fill="#2b1a40"/><path d="M-10,-26 q10,8 20,0" stroke="${ink}" stroke-width="4" fill="none"/>`, null, () => gib('Peekaboo!', 2, 1.3)],
+  ['sock', ITEM.sock, 'Hey! That is the stinky sock! Pee-yew!', () => SFX.squawk()],
+  ['duck', `<ellipse class="o" fill="#ffe14a" cx="0" cy="-26" rx="34" ry="24"/><circle class="o" fill="#ffe14a" cx="20" cy="-60" r="20"/><path class="o t" fill="#ff8a3d" d="M36,-62 l18,4 l-18,7 z"/><circle cx="24" cy="-64" r="4" fill="${ink}"/>`, 'A rubber ducky in space! Quack quack!', quack],
+];
+thing('crater', { approach: [SX + 1500, 780], tap(d) {
+  const [, art, line, sfx] = POPS[(d.taps - 1) % POPS.length]; const g = el('crPop'); g.innerHTML = art;
+  sfx(); if (line) after(0.3, () => say(line)); claireLaugh(1.2);
+  tween(2.2, (q) => { const up = q < 0.25 ? easeBack(q / 0.25) : q > 0.8 ? 1 - (q - 0.8) / 0.2 : 1; g.setAttribute('transform', `translate(1650 ${756 + (1 - up) * 90}) rotate(${q > 0.3 && q < 0.8 ? Math.sin(q * 30) * 6 : 0})`); g.setAttribute('opacity', up > 0.05 ? 1 : 0); }, () => { g.innerHTML = ''; });
+} });
+ITEM.cow = ITEM_COW;
+
+thing('homewin', { approach: [SX + 330, 760], tap() { say('Back home we go!'); travel('home'); }, update(dt, t) { el('hwFloat').setAttribute('transform', `translate(0 ${Math.sin(t * 1.2) * 10})`); } });
+
+const shoot = { active: false, tw: null, x: 0, y: 0 };
+thing('shootStar', { approach: null, sticker: 'star', tap() {
+  if (!shoot.active) return; shoot.active = false; if (shoot.tw) shoot.tw.dead = true;
+  starsCaught++; SFX.shootingStar(); SFX.sparkle();
+  const node = el('shootStar'), from = { x: shoot.x, y: shoot.y };
+  tween(0.7, (q) => { const p = claireHeadPos(), x = SX + from.x + (p.x - SX - from.x) * q, y = from.y + (p.y - from.y) * q - Math.sin(q * Math.PI) * 120; node.setAttribute('transform', `translate(${x - SX} ${y}) scale(${1 - q * 0.6})`); }, () => { node.setAttribute('transform', 'translate(-3000 -3000)'); const p = claireHeadPos(); burst(p.x, p.y, 30, 500); hop(1, 90); });
+  say(starsCaught === 1 ? 'You caught a shooting star, {n}! Make a wish!' : `You caught another star! That is ${starsCaught} stars!`);
+} });
+function launchStar(vw) {
+  shoot.active = true; const node = el('shootStar');
+  const x0 = camX - SX + rand(0, vw * 0.3), y0 = rand(-40, 120), x1 = x0 + vw * 0.7, y1 = y0 + 300;
+  shoot.tw = tween(3.2, (q) => { shoot.x = x0 + (x1 - x0) * q; shoot.y = y0 + (y1 - y0) * q; node.setAttribute('transform', `translate(${shoot.x} ${shoot.y})`); }, () => { shoot.active = false; node.setAttribute('transform', 'translate(-3000 -3000)'); });
+  tone(2637, 0.2, { vol: 0.04 });
+}
+
+const ANTICS = [
+  () => { wob(600, 0.5, { rate: 18, depth: 160, vol: 0.08 }); const e = el('blipEye'); tween(0.8, (q) => e.setAttribute('transform', `translate(760 628) scale(${1 + Math.sin(q * Math.PI) * 0.5})`)); },
+  () => { [0, 1, 2].forEach((i) => after(i * 0.2, () => { blinkZu(i); tone(N(79 + i * 3), 0.1, { vol: 0.07 }); })); },
+  () => { SFX.boing(); tween(1, (q) => setNeck(1 + Math.sin(q * Math.PI) * 1.4)); },
+  () => { if (!bp.awake) { zzz(SX + 2060, 150); } },
+  () => { hopThing('blip', 50, 2, 0.3); tone(700, 0.1, { type: 'square', f2: 1000, vol: 0.05 }); },
+  () => { gl.dance = 1.2; tone(N(67), 0.15, { type: 'square', vol: 0.05 }); tone(N(72), 0.15, { type: 'square', vol: 0.05, at: 0.18 }); },
+];
+function spaceTick(dt, vw) {
+  if (scene !== 'space' || !playing) return;
+  spaceIdle += dt; anticT -= dt; starT -= dt;
+  if (anticT <= 0) { anticT = rand(6, 11); pick(ANTICS)(); }
+  if (starT <= 0 && !shoot.active) { starT = rand(7, 12); launchStar(vw); }
+  if (spaceIdle > 22) { spaceIdle = 0; say(pick(['Tap an alien! They are so silly!', 'Try tapping the planets! They make music!', 'Look for a shooting star! Can you catch it?', 'Tap the window to go home!'])); }
+}
+
 /* ---------------- stickers & photos ---------------- */
 const STICKERS = {
   floodlight: ['Floodlight', '<rect x="28" y="30" width="8" height="24" fill="#55507a"/><rect x="18" y="14" width="28" height="18" rx="4" fill="#55507a"/><path d="M46 18 62 8v30L46 28z" fill="#ffd23f"/>'],
@@ -919,6 +1276,16 @@ const STICKERS = {
   exit: ['Exit sign', '<rect x="6" y="20" width="52" height="26" rx="3" fill="#fff" stroke="#3a1a5c" stroke-width="2"/><text x="32" y="40" font-size="17" font-weight="900" font-family="Arial" fill="#e0202a" text-anchor="middle">EXIT</text>'],
   chandelier: ['Lights', '<path d="M32 6v16M16 32q16-14 32 0" stroke="#4a5a7a" stroke-width="3" fill="none"/><circle cx="16" cy="36" r="7" fill="#fff6c8" stroke="#4a5a7a" stroke-width="2"/><circle cx="48" cy="36" r="7" fill="#fff6c8" stroke="#4a5a7a" stroke-width="2"/><circle cx="32" cy="30" r="7" fill="#fff6c8" stroke="#4a5a7a" stroke-width="2"/>'],
   books: ['Book bird', '<path d="M32 22 10 16v28l22 6z" fill="#5fd3ff"/><path d="M32 22l22-6v28l-22 6z" fill="#ff6fb5"/>'],
+  blip: ['Blip', '<path d="M14 54C10 34 18 18 32 18s22 16 18 36z" fill="#8fe388"/><circle cx="32" cy="32" r="9" fill="#fff"/><circle cx="33" cy="33" r="4" fill="#2b1a40"/><circle cx="30" cy="10" r="4" fill="#ff6fb5"/>'],
+  zuzu: ['Zuzu', '<circle cx="32" cy="34" r="20" fill="#ffa6d8"/><circle cx="23" cy="32" r="5" fill="#fff"/><circle cx="32" cy="29" r="5" fill="#fff"/><circle cx="41" cy="32" r="5" fill="#fff"/><circle cx="23" cy="32" r="2" fill="#2b1a40"/><circle cx="32" cy="29" r="2" fill="#2b1a40"/><circle cx="41" cy="32" r="2" fill="#2b1a40"/>'],
+  gloop: ['Gloop', '<rect x="22" y="36" width="20" height="22" rx="9" fill="#7fc8ff"/><rect x="29" y="22" width="6" height="16" fill="#7fc8ff"/><ellipse cx="32" cy="20" rx="13" ry="9" fill="#7fc8ff"/><circle cx="24" cy="9" r="4" fill="#fff"/><circle cx="40" cy="9" r="4" fill="#fff"/>'],
+  rocket: ['Rocket', '<path d="M24 50V26q8-20 16 0v24z" fill="#fff" stroke="#3a1a5c" stroke-width="2"/><path d="M26 22q6-14 12 0z" fill="#ff5a6e"/><circle cx="32" cy="34" r="5" fill="#bfefff"/><path d="M24 50l-8 4v-12l8-6zM40 50l8 4v-12l-8-6z" fill="#ff5a6e"/>'],
+  ufo: ['UFO', '<path d="M22 30a10 10 0 0 1 20 0z" fill="#bfefff"/><ellipse cx="32" cy="32" rx="22" ry="7" fill="#d8d2f6"/><circle cx="22" cy="33" r="2" fill="#ffd23f"/><circle cx="32" cy="34" r="2" fill="#ffd23f"/><circle cx="42" cy="33" r="2" fill="#ffd23f"/>'],
+  bigplanet: ['Sleepy planet', '<circle cx="32" cy="32" r="16" fill="#ffb08a"/><ellipse cx="32" cy="34" rx="27" ry="6" fill="none" stroke="#ffd23f" stroke-width="3" transform="rotate(-12 32 34)"/><path d="M25 30q3 2 6 0M33 30q3 2 6 0" stroke="#3a1a5c" stroke-width="2" fill="none"/>'],
+  bouncy: ['Music planet', '<circle cx="32" cy="34" r="17" fill="#6fe0d0"/><circle cx="27" cy="32" r="2.5" fill="#3a1a5c"/><circle cx="37" cy="32" r="2.5" fill="#3a1a5c"/><path d="M27 39q5 4 10 0" stroke="#3a1a5c" stroke-width="2" fill="none"/><path d="M48 12v12a3 3 0 1 1-2-3V12z" fill="#ff6fb5"/>'],
+  star: ['Shooting star', '<path d="M30 10l6 13 14 2-10 10 2 14-12-7-12 7 2-14L10 25l14-2z" fill="#ffd23f" stroke="#3a1a5c" stroke-width="2"/><path d="M8 52l10-10" stroke="#fff6c0" stroke-width="4" stroke-linecap="round"/>'],
+  crater: ['Moon bunny', '<ellipse cx="26" cy="16" rx="4" ry="11" fill="#fff" stroke="#3a1a5c" stroke-width="1.5"/><ellipse cx="38" cy="16" rx="4" ry="11" fill="#fff" stroke="#3a1a5c" stroke-width="1.5"/><circle cx="32" cy="36" r="14" fill="#fff" stroke="#3a1a5c" stroke-width="1.5"/><circle cx="27" cy="34" r="2" fill="#3a1a5c"/><circle cx="37" cy="34" r="2" fill="#3a1a5c"/>'],
+  crystals: ['Singing crystals', '<path d="M18 52l-4-18 8-12 6 14-2 16z" fill="#ff9ee0"/><path d="M26 52l4-30 8-14 6 18-2 26z" fill="#9fdcff"/><path d="M40 52l4-14 8-6 4 12-4 8z" fill="#c7a8ff"/>'],
   plant: ['Plant', '<path d="M32 40 C20 30 18 18 26 14 C28 26 30 30 32 40Z M32 40 C44 30 46 18 38 14 C36 26 34 30 32 40Z" fill="#7cc98a"/><path d="M22 40h20l-3 16h-14z" fill="#ff9e7a"/>'],
   drawing: ['Rainbow', '<path d="M12 44a20 20 0 0 1 40 0" stroke="#ff6fb5" stroke-width="6" fill="none"/><path d="M20 44a12 12 0 0 1 24 0" stroke="#ffd23f" stroke-width="6" fill="none"/><path d="M27 44a5 5 0 0 1 10 0" stroke="#5fd3ff" stroke-width="5" fill="none"/>'],
 };
@@ -965,7 +1332,7 @@ const story = {
     if (drawer.open) slideDrawer(false);
     if (battery) { battery.remove(); battery = null; }
     for (let i = stuck.length - 1; i >= 0; i--) if (stuck[i].who === 'claireCarry') { stuck[i].node.remove(); stuck.splice(i, 1); }
-    detector.fixed = false; detector.chirpOn = false; claire.carry = false;
+    detector.fixed = false; detector.chirpOn = false; claire.carry = false; setScene('home');
     claire.x = 700; claire.y = 760; claire.path = []; claire.lift = 0; claire.locked = false; beep.x = 520; beep.y = 810; camX = 0;
     setHint(null);
   },
@@ -981,14 +1348,16 @@ const story = {
     if (this.step === 'done') { SFX.happySong(); setFace('love', 3); beep.danceT = 3; claire.danceT = 3; say('The smoke detector is singing a happy song!'); return; }
     if (this.step === 'off') { SFX.chirp(0.2); say('That is a smoke detector! It keeps us safe.'); return; }
     if (this.bat === 'claire') { this.install(); return; }
+    if (this.bat === 'opening' || this.bat === 'installed') return;
     detector.flash = 0.6; SFX.chirp(0.2); this.step = 'need'; setHint(things.drawer);
     say("It is the smoke detector! It beeps when it is hungry for a new battery. Can you find a battery? Let's look in the kitchen!");
   },
   tapDrawer(d) {
     this.idle = 0;
     if (this.bat === 'drawer' && this.step !== 'off') {
-      slideDrawer(true); SFX.clunk(); this.bat = 'claire';
+      slideDrawer(true); SFX.clunk(); this.bat = 'opening';
       after(0.35, () => {
+        this.bat = 'claire';
         SFX.sparkle(); battery = spawnItem('battery', KX + 400, 480);
         flyItem(battery, { x: KX + 400, y: 480 }, () => ({ x: claire.x, y: claire.y - claire.lift - 420 * depth(claire.y) }), 0.8, 200, () => { stickTo(battery, 'claireCarry', 0, 1e9); claire.carry = true; hop(1, 50); });
         giveSticker('battery', things.drawer.node);
@@ -1005,6 +1374,7 @@ const story = {
     if (k === 2) { slideDrawer(false); SFX.clunk(); }
   },
   install() {
+    if (!battery) return;
     this.bat = 'installed'; claire.carry = false; setHint(null);
     const i = stuck.findIndex((s) => s.who === 'claireCarry'); if (i >= 0) stuck.splice(i, 1);
     walkTo(DET.x, 730);
@@ -1019,7 +1389,7 @@ const story = {
     say('Click! You fixed it, {n}! The smoke detector is happy now. You are a super fixer!').then(() => { if (this.step !== 'done') return; say('Now you can play with anything you want. Tap, tap, tap!'); $('#homeBtn').classList.add('pulse'); });
   },
   update(dt) {
-    if (this.step === 'off' || this.step === 'done') return;
+    if (this.step === 'off' || this.step === 'done' || scene === 'space') return;
     if (this.step === 'intro' && claire.x > BX + 60) { this.step = 'look'; this.idle = 0; setHint(things.detector); say('It is getting louder! Look up high! What is beeping?'); }
     this.idle += dt;
     if (this.idle > 16) {
@@ -1051,12 +1421,12 @@ world.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clien
 world.addEventListener('pointerup', (e) => {
   if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null;
   if (moved > 24 || !playing) return;
-  initAudio(); story.idle = 0;
+  initAudio(); story.idle = 0; spaceIdle = 0;
   const tn = e.target.closest('[data-thing]');
-  if (tn) { const d = things[tn.dataset.thing]; if (!d) return; d.taps++; if (d.approach) walkTo(d.approach[0], d.approach[1]); d.tap(d); if (STICKERS[d.id]) giveSticker(d.id, d.node); return; }
-  if (e.target.closest('#claire')) { SFX.giggle(); claire.spinT = 0.5; hop(1, 80); claireLaugh(1); const p = claireHeadPos(); burst(p.x, p.y, 20, 400); return; }
+  if (tn) { const d = things[tn.dataset.thing]; if (!d) return; d.taps++; if (d.approach) walkTo(d.approach[0], d.approach[1]); d.tap(d); const sid = d.sticker || d.id; if (STICKERS[sid]) giveSticker(sid, d.node); return; }
+  if (e.target.closest('#claire')) { tapClaire(); return; }
   const p = toWorld(e.clientX, e.clientY);
-  const y = p.y < FLOOR ? 740 : p.y; walkTo(p.x, y); ripple(clamp(p.x, 80, WORLD_W - 80), clamp(y, 690, 870)); SFX.tap();
+  const y = p.y < FLOOR ? 740 : p.y; walkTo(p.x, y); const [bl, bh] = bounds(); ripple(clamp(p.x, bl, bh), clamp(y, 690, 870)); SFX.tap();
 });
 
 /* buttons & overlays */
@@ -1100,17 +1470,17 @@ const pip = $('#pip'), pipFrame = $('#pipFrame');
 pip.setAttribute('xmlns', SVGNS); pip.innerHTML = '<use href="#worldG"/>';
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; clockT += dt; const t = clockT;
-  for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; tw.t += dt; const k = Math.min(1, tw.t / tw.dur); tw.fn(k); if (k >= 1) { tweens.splice(i, 1); tw.done?.(); } }
+  for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; if (tw.dead) { tweens.splice(i, 1); continue; } tw.t += dt; const k = Math.min(1, tw.t / tw.dur); tw.fn(k); if (k >= 1) { tweens.splice(i, 1); tw.done?.(); } }
   for (let i = timers.length - 1; i >= 0; i--) { const tm = timers[i]; tm.t -= dt; if (tm.t <= 0) { timers.splice(i, 1); tm.fn(); } }
   updateClaire(dt, t); updateBeep(dt, t);
   for (const id in things) things[id].update?.(dt, t);
-  story.update(dt); updateStuck(dt);
+  story.update(dt); updateStuck(dt); spaceTick(dt, Math.max(1250, 900 * innerWidth / innerHeight));
   for (let i = confetti.length - 1; i >= 0; i--) { const c = confetti[i]; c.life -= dt; c.vy += (c.g ?? 1400) * dt; c.vx *= 0.985; c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vr * dt; if (c.y > c.floor) { c.y = c.floor; c.vx = 0; c.vy = 0; c.vr = 0; } c.el.setAttribute('transform', `translate(${c.x} ${c.y}) rotate(${c.rot})`); if (c.life < 0.5) c.el.setAttribute('opacity', Math.max(0, c.life * 2)); if (c.life <= 0) { c.el.remove(); confetti.splice(i, 1); } }
-  if (hintTarget) { const [hx, hy] = hintTarget.hint; const s = 1 + Math.sin(t * 6) * 0.12; hintStar.setAttribute('transform', `translate(${hx} ${hy + Math.sin(t * 4) * 12}) rotate(${Math.sin(t * 2) * 15}) scale(${s})`); }
+  if (hintTarget && scene === 'home') { const [hx, hy] = hintTarget.hint; const s = 1 + Math.sin(t * 6) * 0.12; hintStar.setAttribute('transform', `translate(${hx} ${hy + Math.sin(t * 4) * 12}) rotate(${Math.sin(t * 2) * 15}) scale(${s})`); }
 
   const aspect = innerWidth / innerHeight;
   const vw = Math.max(1250, 900 * aspect), vh = vw / aspect;
-  const target = clamp(claire.x - vw / 2, 0, WORLD_W - vw);
+  const [cl, ch] = camBounds(); const target = clamp(claire.x - vw / 2, cl, ch - vw);
   camX += (target - camX) * Math.min(1, dt * 2.6);
   world.setAttribute('viewBox', `${camX.toFixed(1)} ${(900 - vh).toFixed(1)} ${vw.toFixed(1)} ${vh.toFixed(1)}`);
 
