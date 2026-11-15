@@ -1,0 +1,904 @@
+<title>Buddy Maker</title>
+<meta name="apple-mobile-web-app-title" content="Buddy Maker">
+<style>
+/* Layout: one full-screen SVG stage (lab / map / places) with big round HTML buttons on top. Single bright look; nothing needs reading. */
+:root {
+  --ink: #3a1a3c;
+  --paper: #fffaf2;
+  --purple: #8e44d6;
+  --sun: #ffd23f;
+  --go: #2fbf71;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; overflow: hidden; background: #b9a4ff; color: var(--ink);
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; font-family: 'Trebuchet MS', system-ui, sans-serif; }
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+button { font: inherit; color: inherit; }
+.rb { border-radius: 50%; border: 6px solid var(--paper); background: var(--purple); box-shadow: 0 6px 0 #4b1f7a; display: grid; place-items: center; padding: 0; cursor: pointer; transition: transform .12s; }
+.rb:active { transform: scale(.92); }
+.rb svg { width: 62%; height: 62%; }
+.nudge { animation: nudge 1s ease-in-out infinite; }
+@keyframes nudge { 50% { transform: translateY(-12px) scale(1.1); } }
+#homeBtn { position: fixed; z-index: 6; width: 84px; height: 84px; top: calc(env(safe-area-inset-top, 0px) + 14px); left: calc(env(safe-area-inset-left, 0px) + 14px); }
+#beepHud { position: fixed; z-index: 6; top: calc(env(safe-area-inset-top, 0px) + 10px); left: calc(env(safe-area-inset-left, 0px) + 112px); display: flex; align-items: center; gap: 8px; }
+#beepBtn { width: 96px; height: 96px; background: #d2ccf4; box-shadow: 0 6px 0 #6d5fb0; }
+#beepBtn svg { width: 86%; height: 86%; }
+#beepBtn.talk { animation: talk .25s ease-in-out infinite alternate; }
+@keyframes talk { to { transform: translateY(-5px) rotate(4deg); } }
+#ask { min-width: 90px; height: 96px; border-radius: 30px; background: var(--paper); border: 5px solid var(--ink); display: grid; place-items: center; padding: 0 12px; box-shadow: 0 5px 0 rgba(0,0,0,.2); }
+#ask svg { height: 78px; }
+#stars { position: fixed; z-index: 6; top: calc(env(safe-area-inset-top, 0px) + 16px); right: calc(env(safe-area-inset-right, 0px) + 18px); display: flex; align-items: center; gap: 4px; background: rgba(255,250,242,.85); border: 4px solid var(--ink); border-radius: 40px; padding: 4px 16px 4px 8px; font: 800 40px/1 'Trebuchet MS', sans-serif; }
+#stars svg { width: 48px; height: 48px; }
+#stars.pop { animation: pop .5s; }
+@keyframes pop { 40% { transform: scale(1.35); } }
+#labUi { position: fixed; z-index: 5; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); display: grid; gap: 8px; justify-items: center; padding: 0 max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); }
+#opts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: calc(100vw - 190px); }
+.opt { width: 100px; height: 100px; border-radius: 26px; border: 5px solid var(--paper); background: rgba(255,250,242,.55); box-shadow: 0 5px 0 rgba(58,26,60,.35); padding: 2px; cursor: pointer; transition: transform .12s; }
+.opt svg { width: 100%; height: 100%; }
+.opt.on { background: var(--sun); transform: translateY(-6px); }
+.opt.new { animation: nudge 1s ease-in-out infinite; border-color: var(--sun); }
+#tabs { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.tab { width: 82px; height: 82px; }
+.tab.on { background: #ff6fb5; box-shadow: 0 6px 0 #a12d68; transform: translateY(-6px); }
+#goBtn { position: fixed; z-index: 6; right: calc(env(safe-area-inset-right, 0px) + 20px); bottom: calc(env(safe-area-inset-bottom, 0px) + 120px); width: 140px; height: 140px; border-width: 8px; background: var(--go); box-shadow: 0 8px 0 #146b3d; }
+#kindPick { position: fixed; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; gap: 6vw; background: radial-gradient(circle at 50% 40%, #e8dcff, #9b7cf0); }
+.kind { width: min(36vw, 340px); height: min(36vw, 340px); border-radius: 50px; border: 10px solid var(--paper); background: rgba(255,250,242,.6); box-shadow: 0 10px 0 #4b1f7a; padding: 0; cursor: pointer; animation: nudge 1.6s ease-in-out infinite; }
+.kind:nth-child(2) { animation-delay: .8s; }
+.kind svg { width: 100%; height: 100%; }
+#mapUi { position: fixed; z-index: 5; right: calc(env(safe-area-inset-right, 0px) + 20px); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); display: flex; gap: 18px; }
+#mapUi .rb { width: 120px; height: 120px; }
+#start { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #ffb3e0, #8e44d6 70%); }
+#start .wrap { display: grid; justify-items: center; gap: 10px; }
+#start svg.hero { width: min(70vw, 620px); height: auto; }
+#playBtn { width: 180px; height: 180px; border-width: 10px; background: #ff6fb5; box-shadow: 0 12px 0 #a12d68; animation: nudge 1.4s ease-in-out infinite; }
+#playBtn svg { margin-left: 14px; }
+#fade { position: fixed; inset: 0; z-index: 8; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
+#fade.on { opacity: 1; }
+:focus-visible { outline: 4px solid var(--sun); outline-offset: 3px; }
+
+/* svg bits */
+.eye { transform-box: fill-box; transform-origin: center; transition: transform .08s; }
+.blink .eye { transform: scaleY(.12); }
+.breathe { animation: br 2.4s ease-in-out infinite; }
+@keyframes br { 50% { transform: scale(1.025, .975); } }
+.armL, .armR { animation: wave 1.8s ease-in-out infinite; }
+.armR { animation-delay: .9s; }
+@keyframes wave { 50% { transform: rotate(-14deg); } }
+.dance .armL, .dance .armR { animation: wave2 .3s ease-in-out infinite; }
+@keyframes wave2 { 50% { transform: rotate(-60deg); } }
+.wingL, .wingR { animation: flap .5s ease-in-out infinite; transform-box: fill-box; }
+.wingL { transform-origin: right center; } .wingR { transform-origin: left center; }
+@keyframes flap { 50% { transform: rotate(-25deg); } }
+.wingR { animation-name: flapR; } @keyframes flapR { 50% { transform: rotate(25deg); } }
+.blinky { animation: blinky .6s steps(2) infinite; }
+@keyframes blinky { 50% { opacity: .25; } }
+.spinP { animation: spinP .25s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes spinP { to { transform: rotate(360deg); } }
+.ti { transform-box: fill-box; transform-origin: 50% 100%; }
+.wig { animation: wig .5s ease-in-out; }
+@keyframes wig { 25% { transform: rotate(-6deg) scale(1.05); } 75% { transform: rotate(6deg) scale(1.05); } }
+.squish { animation: squish .5s ease-out; }
+@keyframes squish { 30% { transform: scale(1.3, .6); } 60% { transform: scale(.85, 1.2); } }
+.glow { animation: glow .8s ease-in-out infinite; }
+@keyframes glow { 50% { transform: scale(1.12); filter: drop-shadow(0 0 18px #fff6a0); } }
+.jiggle { animation: jiggle 1.6s ease-in-out infinite; }
+@keyframes jiggle { 50% { transform: scale(1.04, .96); } }
+.sway { animation: sway 3s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes sway { 50% { transform: rotate(5deg); } }
+.place { cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .nudge, .kind, #playBtn, .breathe, .armL, .armR { animation: none; } }
+</style>
+
+<svg id="stage" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="gPark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fd4ff"/><stop offset="1" stop-color="#d9f4ff"/></linearGradient>
+    <linearGradient id="gSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d6fd0"/><stop offset="1" stop-color="#0b2f73"/></linearGradient>
+    <linearGradient id="gMoon" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07061f"/><stop offset="1" stop-color="#2a1a5e"/></linearGradient>
+    <linearGradient id="gLab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8dcff"/><stop offset="1" stop-color="#c3aef7"/></linearGradient>
+    <linearGradient id="gMap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fc8ff"/><stop offset="1" stop-color="#2d8fe0"/></linearGradient>
+  </defs>
+  <g id="bg"></g><g id="things"></g><g id="actors"></g><g id="fx"></g>
+</svg>
+
+<button class="rb" id="homeBtn" aria-label="Map" hidden><svg viewBox="0 0 64 64"><path d="M8 32 32 10l24 22h-7v22H15V32z" fill="#fffaf2" stroke="#3a1a3c" stroke-width="4" stroke-linejoin="round"/><rect x="26" y="38" width="12" height="16" rx="3" fill="#ffd23f" stroke="#3a1a3c" stroke-width="3"/></svg></button>
+<div id="beepHud" hidden><button class="rb" id="beepBtn" aria-label="Beep"></button><div id="ask" hidden></div></div>
+<div id="stars"><svg viewBox="-12 -12 24 24"><path id="starPath" fill="#ffd23f" stroke="#3a1a3c" stroke-width="2" stroke-linejoin="round"/></svg><span id="starN">0</span></div>
+<div id="labUi" hidden><div id="opts"></div><div id="tabs"></div></div>
+<button class="rb nudge" id="goBtn" aria-label="Done" hidden><svg viewBox="0 0 64 64"><path d="M10 34 26 50 54 16" stroke="#fffaf2" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<div id="kindPick" hidden><button class="kind" data-kind="monster" aria-label="Monster"></button><button class="kind" data-kind="robot" aria-label="Robot"></button></div>
+<div id="mapUi" hidden>
+  <button class="rb" id="tinyBtn" aria-label="Make a tiny buddy" style="background:#ff6fb5;box-shadow:0 6px 0 #a12d68"></button>
+  <button class="rb" id="labBtn" aria-label="Change my buddy"><svg viewBox="0 0 64 64"><path d="M44 6 58 20 26 52 10 56 14 40z" fill="#ffd23f" stroke="#3a1a3c" stroke-width="4" stroke-linejoin="round"/><path d="M14 40 26 52" stroke="#3a1a3c" stroke-width="4"/><circle cx="14" cy="52" r="5" fill="#ff6fb5"/></svg></button>
+</div>
+<div id="start"><div class="wrap"><svg class="hero" id="startArt" viewBox="0 0 800 380"></svg><button class="rb" id="playBtn" aria-label="Play"><svg viewBox="0 0 64 64"><path d="M14 6 58 32 14 58z" fill="#fffaf2" stroke="#3a1a3c" stroke-width="5" stroke-linejoin="round"/></svg></button></div></div>
+<div id="fade"></div>
+
+<script>
+(() => {
+'use strict';
+const S = { name: 'Claire' };
+try { Object.assign(S, JSON.parse(localStorage.getItem('claire-adv-settings') || '{}')); } catch {}
+const KEY = 'claire-buddies-v1';
+let st = { hero: null, buds: [], unlocked: 1, done: {}, stars: 0, parts: [], fresh: [] };
+try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.hero) st = Object.assign(st, s); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} };
+
+const $ = (s) => document.querySelector(s);
+const rand = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rand(a, b + 1));
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const NS = 'http://www.w3.org/2000/svg', ink = '#3a1a3c';
+const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16); const f = (c) => Math.round(k > 0 ? c * (1 - k) : c + (255 - c) * -k); return '#' + [f(n >> 16), f((n >> 8) & 255), f(n & 255)].map(v => v.toString(16).padStart(2, '0')).join(''); };
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+const svg = $('#stage'), L = { bg: $('#bg'), things: $('#things'), actors: $('#actors'), fx: $('#fx') };
+function svgEl(tag, attrs, parent, html) { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (html) n.innerHTML = html; (parent || L.fx).appendChild(n); return n; }
+const starD = (R = 11, r = 5) => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r : R; d += (i ? 'L' : 'M') + (q * Math.cos(a)).toFixed(1) + ',' + (q * Math.sin(a)).toFixed(1); } return d + 'Z'; };
+$('#starPath').setAttribute('d', starD());
+
+/* ---------------- sound ---------------- */
+let AC = null, master = null, noiseBuf = null;
+function initAudio() {
+  if (AC) { AC.resume?.(); return; }
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+  master = AC.createGain(); master.gain.value = 0.8;
+  const comp = AC.createDynamicsCompressor(); master.connect(comp); comp.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const s = AC.createBufferSource(); s.buffer = AC.createBuffer(1, 1, 22050); s.connect(master); s.start(0);
+}
+function tone(f, dur, { type = 'sine', vol = 0.2, f2, at = 0, attack = 0.008 } = {}) {
+  if (!AC) return; const t = AC.currentTime + at, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+}
+function noise(dur, { vol = 0.2, freq = 2000, f2, q = 1, type = 'bandpass', at = 0 } = {}) {
+  if (!AC) return; const t = AC.currentTime + at, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = noiseBuf; s.loop = true; f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q; if (f2) f.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + dur + 0.05);
+}
+const N = (n) => 440 * Math.pow(2, (n - 69) / 12);
+function melody(notes, { bpm = 160, type = 'triangle', vol = 0.14, at = 0 } = {}) { let t = at; const b = 60 / bpm; for (const [n, l] of notes) { if (n) tone(N(n), l * b * 0.95, { type, vol, at: t }); t += l * b; } }
+const SFX = {
+  pop: () => tone(480, 0.12, { f2: 1100, vol: 0.25 }),
+  boing: (k = 1) => { tone(130 * k, 0.2, { type: 'triangle', f2: 600 * k, vol: 0.25 }); tone(600 * k, 0.35, { type: 'triangle', f2: 160 * k, vol: 0.18, at: 0.18 }); },
+  bonk: () => { tone(900, 0.08, { type: 'square', vol: 0.12 }); tone(300, 0.25, { type: 'triangle', f2: 120, vol: 0.25 }); },
+  thud: () => { tone(110, 0.3, { f2: 40, vol: 0.4 }); noise(0.15, { freq: 300, vol: 0.3 }); },
+  splash: () => { noise(0.7, { freq: 1500, f2: 500, q: 0.6, vol: 0.35 }); for (let i = 0; i < 6; i++) tone(rand(800, 1600), 0.08, { vol: 0.06, at: rand(0, .4) }); },
+  whoosh: () => noise(0.5, { freq: 400, f2: 3000, q: 0.8, vol: 0.25 }),
+  slide: () => tone(900, 0.7, { type: 'triangle', f2: 200, vol: 0.12 }),
+  squeak: () => tone(1400, 0.1, { type: 'square', f2: 2200, vol: 0.05 }),
+  giggle: (k = 1) => { for (let i = 0; i < 6; i++) tone((700 + (i % 2) * 260) * k, 0.07, { type: 'triangle', vol: 0.12, at: i * 0.09 }); },
+  chomp: () => { for (let i = 0; i < 3; i++) { noise(0.06, { freq: 900, vol: 0.3, at: i * 0.16 }); tone(160, 0.07, { type: 'square', vol: 0.08, at: i * 0.16 }); } },
+  sneezeUp: () => [0, .35, .7].forEach((t, i) => tone(300 + i * 120, 0.3, { type: 'triangle', f2: 420 + i * 120, vol: 0.08, at: t })),
+  choo: () => { noise(0.5, { freq: 2500, f2: 600, q: 0.5, vol: 0.5 }); tone(500, 0.2, { type: 'sawtooth', f2: 200, vol: 0.12 }); },
+  hic: () => tone(600, 0.09, { type: 'triangle', f2: 1200, vol: 0.18 }),
+  zz: () => tone(140, 0.6, { type: 'sawtooth', vol: 0.025, f2: 110 }),
+  raspberry: () => { for (let i = 0; i < 14; i++) tone(rand(90, 140), 0.05, { type: 'sawtooth', vol: 0.12, at: i * 0.04 }); },
+  blorp: () => { tone(200, 0.15, { f2: 700, vol: 0.25 }); tone(700, 0.25, { f2: 150, vol: 0.2, at: 0.14 }); },
+  snap: () => { noise(0.05, { freq: 3000, vol: 0.4 }); tone(200, 0.1, { type: 'square', vol: 0.15 }); },
+  squirt: () => noise(0.4, { freq: 600, f2: 200, q: 2, vol: 0.35 }),
+  bubble: () => tone(300, 0.3, { f2: 900, vol: 0.12 }),
+  sparkle: () => [1319, 1568, 2093, 2637].forEach((f, i) => tone(f, 0.25, { type: 'triangle', vol: 0.1, at: i * 0.06 })),
+  shrink: () => tone(1200, 0.6, { type: 'triangle', f2: 2400, vol: 0.1 }),
+  beepboop: () => { tone(880, 0.1, { type: 'square', vol: 0.06 }); tone(660, 0.12, { type: 'square', vol: 0.06, at: 0.12 }); },
+  fanfare: () => { melody([[72, 1], [76, 1], [79, 1], [84, 3]], { bpm: 300, type: 'square', vol: 0.07 }); melody([[60, 3], [64, 3]], { bpm: 300, vol: 0.1, at: 0.6 }); melody([[79, 1], [81, 1], [84, 1], [88, 4]], { bpm: 260, type: 'square', vol: 0.06, at: 1.2 }); },
+  dance: () => { const ns = [60, 64, 67, 72, 67, 64, 60, 67]; ns.forEach((n, i) => { tone(N(n), 0.16, { type: 'square', vol: 0.06, at: i * 0.18 }); tone(N(n - 24), 0.16, { type: 'triangle', vol: 0.12, at: i * 0.18 }); }); },
+  wrong: () => { tone(400, 0.15, { type: 'triangle', vol: 0.12 }); tone(300, 0.25, { type: 'triangle', vol: 0.12, at: 0.15 }); },
+  vroom: () => tone(80, 0.8, { type: 'sawtooth', f2: 220, vol: 0.07 }),
+  siren: () => { tone(620, 0.4, { f2: 980, type: 'triangle', vol: 0.07 }); tone(980, 0.4, { f2: 620, type: 'triangle', vol: 0.07, at: 0.4 }); },
+};
+
+/* ---------------- voice ---------------- */
+let voice = null;
+function pickVoice() { const vs = window.speechSynthesis ? speechSynthesis.getVoices() : []; voice = vs.find(v => /^en/i.test(v.lang) && /(Samantha|Karen|Moira|Tessa|Allison|Ava|Google US English)/.test(v.name)) || vs.find(v => /^en/i.test(v.lang)) || null; }
+if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+let speakTok = 0;
+function say(text, { pitch = 1.45, rate = 1.0, beep = true } = {}) {
+  return new Promise((res) => {
+    const words = text.replaceAll('{n}', S.name);
+    if (!window.speechSynthesis) return setTimeout(res, 400 + words.length * 40);
+    const my = ++speakTok, u = new SpeechSynthesisUtterance(words);
+    if (voice) u.voice = voice; u.pitch = pitch; u.rate = rate;
+    const b = $('#beepBtn'); if (beep) b.classList.add('talk');
+    let done = false; const fin = () => { if (done) return; done = true; if (my === speakTok) b.classList.remove('talk'); res(); };
+    u.onend = fin; u.onerror = fin; setTimeout(fin, 1500 + words.length * 85);
+    if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 60); } else speechSynthesis.speak(u);
+  });
+}
+const buddySay = (a, text) => say(text, a.sp.kind === 'robot' ? { pitch: 0.7, rate: 0.95, beep: false } : { pitch: 1.9, rate: 1.1, beep: false });
+
+/* ---------------- creature parts ---------------- */
+const COLORS = { purple: '#9b5de5', pink: '#ff6fb5', blue: '#3fa9f5', green: '#4ade80', yellow: '#ffd23f', orange: '#ff8c42', red: '#ff4d6d', teal: '#2ec4b6' };
+const SHAPE_NAME = { round: 'circle', square: 'square', tri: 'triangle', star: 'star', heart: 'heart', tall: 'oval' };
+const BODY = {
+  round: { el: (f, s, w) => `<circle cx="0" cy="-140" r="95" fill="${f}" stroke="${s}" stroke-width="${w}"/>`, top: -235, eyeY: -160, mouthY: -105, spread: 52, armX: 92, armY: -130 },
+  square: { el: (f, s, w) => `<rect x="-92" y="-232" width="184" height="186" rx="34" fill="${f}" stroke="${s}" stroke-width="${w}"/>`, top: -232, eyeY: -172, mouthY: -105, spread: 56, armX: 92, armY: -130 },
+  tri: { el: (f, s, w) => `<path d="M-14,-252 Q0,-272 14,-252 L112,-66 Q122,-46 98,-46 L-98,-46 Q-122,-46 -112,-66 Z" fill="${f}" stroke="${s}" stroke-width="${w}" stroke-linejoin="round"/>`, top: -262, eyeY: -128, mouthY: -82, spread: 40, armX: 76, armY: -110 },
+  star: { el: (f, s, w) => `<path d="${(() => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? 62 : 124; d += (i ? 'L' : 'M') + (q * Math.cos(a)).toFixed(1) + ',' + (-145 + q * Math.sin(a)).toFixed(1); } return d + 'Z'; })()}" fill="${f}" stroke="${s}" stroke-width="${w}" stroke-linejoin="round"/>`, top: -262, eyeY: -158, mouthY: -118, spread: 34, armX: 104, armY: -150 },
+  heart: { el: (f, s, w) => `<path d="M0,-48 C-60,-90 -125,-130 -118,-185 C-112,-240 -40,-250 0,-200 C40,-250 112,-240 118,-185 C125,-130 60,-90 0,-48Z" fill="${f}" stroke="${s}" stroke-width="${w}" stroke-linejoin="round"/>`, top: -212, eyeY: -170, mouthY: -122, spread: 52, armX: 112, armY: -150 },
+  tall: { el: (f, s, w) => `<ellipse cx="0" cy="-172" rx="74" ry="126" fill="${f}" stroke="${s}" stroke-width="${w}"/>`, top: -298, eyeY: -215, mouthY: -150, spread: 44, armX: 74, armY: -165 },
+};
+let uid = 0;
+function eyes(sp, B) {
+  const n = sp.eyes, rr = [0, 32, 25, 20, 17, 14][n], robot = sp.kind === 'robot';
+  let out = '';
+  for (let i = 0; i < n; i++) {
+    const x = n === 1 ? 0 : -B.spread + (2 * B.spread) * i / (n - 1), y = B.eyeY + (n >= 3 ? (i % 2 ? -14 : 6) : 0);
+    if (robot) out += `<g class="eye"><rect x="${x - rr}" y="${y - rr}" width="${rr * 2}" height="${rr * 2}" rx="${rr * .35}" fill="#24103d" stroke="${ink}" stroke-width="4"/><circle cx="${x}" cy="${y}" r="${rr * .55}" fill="#7ff3ff"/><circle cx="${x - rr * .25}" cy="${y - rr * .25}" r="${rr * .18}" fill="#fff"/></g>`;
+    else out += `<g class="eye"><circle cx="${x}" cy="${y}" r="${rr}" fill="#fff" stroke="${ink}" stroke-width="4"/><circle cx="${x + rr * .18}" cy="${y + rr * .12}" r="${rr * .52}" fill="${ink}"/><circle cx="${x + rr * .32}" cy="${y - rr * .08}" r="${rr * .18}" fill="#fff"/></g>`;
+  }
+  return out;
+}
+function mouth(sp, B) {
+  const y = B.mouthY, m = sp.mouth;
+  const smile = `<path d="M-28,${y - 6} Q0,${y + 22} 28,${y - 6}" stroke="${ink}" stroke-width="7" fill="none" stroke-linecap="round"/>`;
+  return {
+    smile, tongue: smile + `<path d="M-2,${y + 6} q-4,26 12,26 q14,0 10,-26z" fill="#ff6f91" stroke="${ink}" stroke-width="4"/>`,
+    grin: `<path d="M-34,${y - 10} Q0,${y + 36} 34,${y - 10} Z" fill="${ink}" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/><path d="M-26,${y - 8} h52 v8 h-52z" fill="#fff"/>`,
+    o: `<ellipse cx="0" cy="${y + 2}" rx="13" ry="17" fill="${ink}"/><ellipse cx="0" cy="${y + 10}" rx="7" ry="6" fill="#ff6f91"/>`,
+    fangs: smile + `<path d="M-16,${y + 2} l5,12 l5,-10z M6,${y + 4} l5,10 l5,-12z" fill="#fff" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/>`,
+    grille: `<rect x="-30" y="${y - 14}" width="60" height="28" rx="8" fill="#24103d" stroke="${ink}" stroke-width="4"/>` + [-18, -6, 6, 18].map(x => `<path d="M${x},${y - 8} v16" stroke="#7ff3ff" stroke-width="4" stroke-linecap="round"/>`).join(''),
+    led: `<rect x="-34" y="${y - 14}" width="68" height="30" rx="10" fill="#24103d" stroke="${ink}" stroke-width="4"/><path d="M-22,${y - 4} Q0,${y + 14} 22,${y - 4}" stroke="#7dffa6" stroke-width="5" fill="none" stroke-linecap="round"/>`,
+    zig: `<path d="M-30,${y} l10,-10 l10,10 l10,-10 l10,10 l10,-10 l10,10" stroke="${ink}" stroke-width="6" fill="none" stroke-linejoin="round" stroke-linecap="round"/>`,
+    speaker: `<circle cx="0" cy="${y}" r="17" fill="#24103d" stroke="${ink}" stroke-width="4"/><circle cx="0" cy="${y}" r="8" fill="none" stroke="#7ff3ff" stroke-width="3"/>`,
+  }[m] || smile;
+}
+function top(sp, B, c, dk) {
+  const t = B.top;
+  switch (sp.top) {
+    case 'antenna': return `<path d="M0,${t + 4} V${t - 56}" stroke="${ink}" stroke-width="6"/><circle cx="0" cy="${t - 66}" r="15" fill="#ffd23f" stroke="${ink}" stroke-width="5"/>`;
+    case 'horns': return `<path d="M-34,${t + 22} q-34,-44 -14,-78 q6,40 32,64z M34,${t + 22} q34,-44 14,-78 q-6,40 -32,64z" fill="#fff3c4" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/>`;
+    case 'hair': return [-30, 0, 30].map((x, i) => `<circle cx="${x}" cy="${t + (i === 1 ? -10 : 4)}" r="26" fill="${dk}" stroke="${ink}" stroke-width="5"/>`).join('');
+    case 'ears': return `<g><ellipse cx="-42" cy="${t - 34}" rx="20" ry="48" transform="rotate(-14 -42 ${t - 34})" fill="${c}" stroke="${ink}" stroke-width="5"/><ellipse cx="-42" cy="${t - 34}" rx="9" ry="32" transform="rotate(-14 -42 ${t - 34})" fill="#ffb3d1"/><ellipse cx="42" cy="${t - 34}" rx="20" ry="48" transform="rotate(14 42 ${t - 34})" fill="${c}" stroke="${ink}" stroke-width="5"/><ellipse cx="42" cy="${t - 34}" rx="9" ry="32" transform="rotate(14 42 ${t - 34})" fill="#ffb3d1"/></g>`;
+    case 'bow': return `<g transform="translate(42 ${t + 12}) rotate(15)"><path d="M0,0 L-36,-22 L-36,22Z M0,0 L36,-22 L36,22Z" fill="#ff6fb5" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/><circle r="11" fill="#ff9fd0" stroke="${ink}" stroke-width="5"/></g>`;
+    case 'dish': return `<path d="M0,${t + 4} V${t - 30}" stroke="${ink}" stroke-width="7"/><path d="M-44,${t - 54} Q0,${t - 4} 44,${t - 54} Z" fill="#dfe6f0" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/><circle cx="0" cy="${t - 52}" r="7" fill="#ff4d6d"/>`;
+    case 'propeller': return `<path d="M0,${t + 4} V${t - 34}" stroke="${ink}" stroke-width="7"/><g transform="translate(0 ${t - 38})"><g class="spinP"><ellipse cx="0" cy="0" rx="60" ry="10" fill="#ff8c42" stroke="${ink}" stroke-width="4"/></g></g><circle cx="0" cy="${t - 38}" r="8" fill="#ffd23f" stroke="${ink}" stroke-width="4"/>`;
+    case 'siren': return `<rect x="-30" y="${t - 12}" width="60" height="18" rx="5" fill="#8b8fa8" stroke="${ink}" stroke-width="5"/><path d="M-24,${t - 12} V${t - 46} Q0,${t - 74} 24,${t - 46} V${t - 12}z" fill="#ff4d6d" stroke="${ink}" stroke-width="5" class="blinky"/><path d="M-12,${t - 44} q4,-14 14,-18" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" opacity=".8"/>`;
+    case 'flood': return `<path d="M0,${t + 4} V${t - 24}" stroke="${ink}" stroke-width="7"/><path d="M30,${t - 50} L200,${t - 120} L200,${t + 30} Z" fill="#fff6a0" opacity=".45"/><rect x="-34" y="${t - 76}" width="68" height="54" rx="10" fill="#ffd23f" stroke="${ink}" stroke-width="5"/><path d="M-22,${t - 62} h44 M-22,${t - 49} h44 M-22,${t - 36} h44" stroke="${ink}" stroke-width="3"/>`;
+    case 'camera': return `<rect x="-40" y="${t - 52}" width="80" height="50" rx="10" fill="#3b2a6e" stroke="${ink}" stroke-width="5"/><circle cx="0" cy="${t - 27}" r="17" fill="#24103d" stroke="#bfeaff" stroke-width="5"/><circle cx="-6" cy="${t - 33}" r="5" fill="#fff"/><circle cx="28" cy="${t - 44}" r="5" fill="#ff4d6d" class="blinky"/>`;
+    case 'flower': return [-56, -28, 0, 28, 56].map((x, i) => { const y = t + Math.abs(x) * 0.45 - 6, col = ['#ff6fb5', '#ffd23f', '#9b5de5', '#4cc9f0', '#ff8c42'][i]; return `<g transform="translate(${x} ${y})">${[0, 72, 144, 216, 288].map(a => `<circle cx="${(13 * Math.cos(a * Math.PI / 180)).toFixed(1)}" cy="${(13 * Math.sin(a * Math.PI / 180)).toFixed(1)}" r="10" fill="${col}" stroke="${ink}" stroke-width="3"/>`).join('')}<circle r="8" fill="#fff6a0" stroke="${ink}" stroke-width="3"/></g>`; }).join('');
+    case 'chef': return `<rect x="-40" y="${t - 34}" width="80" height="36" rx="6" fill="#fff" stroke="${ink}" stroke-width="5"/><circle cx="-30" cy="${t - 52}" r="26" fill="#fff" stroke="${ink}" stroke-width="5"/><circle cx="30" cy="${t - 52}" r="26" fill="#fff" stroke="${ink}" stroke-width="5"/><circle cx="0" cy="${t - 70}" r="30" fill="#fff" stroke="${ink}" stroke-width="5"/><path d="M-36,${t - 32} h72" stroke="#fff" stroke-width="8"/>`;
+    case 'helmet': { const cy = (t + B.mouthY) / 2 - 10, r = (B.mouthY - t) / 2 + 60; return `<circle cx="0" cy="${cy}" r="${r}" fill="#cfefff" fill-opacity=".25" stroke="#fff" stroke-width="8"/><circle cx="0" cy="${cy}" r="${r + 4}" fill="none" stroke="${ink}" stroke-width="3"/><path d="M${-r * .6},${cy - r * .55} q${r * .3},${-r * .35} ${r * .7},${-r * .38}" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>`; }
+    default: return '';
+  }
+}
+function arms(sp, B, c, dk, front) {
+  const X = B.armX, Y = B.armY, robot = sp.kind === 'robot';
+  if (sp.arms === 'wings') return front ? '' : `<g transform="translate(${-X + 10} ${Y - 30})"><path class="wingL" d="M0,0 C-60,-70 -120,-30 -110,10 C-80,0 -50,20 -0,20Z" fill="#eaf6ff" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/></g><g transform="translate(${X - 10} ${Y - 30})"><path class="wingR" d="M0,0 C60,-70 120,-30 110,10 C80,0 50,20 0,20Z" fill="#eaf6ff" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/></g>`;
+  if (!front || sp.arms === 'none') return '';
+  const len = sp.arms === 'tiny' ? 22 : 54, armC = robot ? '#8b8fa8' : c;
+  const one = (s) => {
+    let a;
+    if (sp.arms === 'spring') a = `<path d="M0,0 ${Array.from({ length: 7 }, (_, i) => `l${s * 10},${i % 2 ? -12 : 12}`).join(' ')}" stroke="${ink}" stroke-width="6" fill="none" stroke-linejoin="round"/><circle cx="${s * 74}" cy="0" r="14" fill="#ffd23f" stroke="${ink}" stroke-width="5"/>`;
+    else {
+      const ex = s * len * 0.75, ey = len * 0.9;
+      const hand = sp.arms === 'claw' ? `<path d="M${ex - 14},${ey + 4} q${-4},22 10,26 M${ex + 14},${ey + 4} q4,22 -10,26" stroke="${ink}" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="${ex}" cy="${ey}" r="13" fill="#ffd23f" stroke="${ink}" stroke-width="5"/>` : `<circle cx="${ex}" cy="${ey}" r="${sp.arms === 'tiny' ? 9 : 14}" fill="${robot ? '#ffd23f' : armC}" stroke="${ink}" stroke-width="5"/>`;
+      a = `<path d="M0,0 Q${s * len * 0.5},${len * 0.1} ${ex},${ey}" stroke="${ink}" stroke-width="${robot ? 20 : 18}" fill="none" stroke-linecap="round"/><path d="M0,0 Q${s * len * 0.5},${len * 0.1} ${ex},${ey}" stroke="${armC}" stroke-width="${robot ? 11 : 9}" fill="none" stroke-linecap="round"/>` + hand;
+    }
+    return `<g transform="translate(${s * X} ${Y})"><g class="${s < 0 ? 'armL' : 'armR'}" style="${s > 0 ? 'animation-direction:reverse' : ''}">${a}</g></g>`;
+  };
+  return one(-1) + one(1);
+}
+function feet(sp, c, dk) {
+  switch (sp.feet) {
+    case 'legs': return [-36, 36].map(x => `<rect x="${x - 10}" y="-54" width="20" height="44" rx="8" fill="${sp.kind === 'robot' ? '#8b8fa8' : dk}" stroke="${ink}" stroke-width="5"/><ellipse cx="${x + (x > 0 ? 8 : -8)}" cy="-10" rx="27" ry="13" fill="${sp.kind === 'robot' ? '#3b2a6e' : '#7a4fd6'}" stroke="${ink}" stroke-width="5"/>`).join('');
+    case 'wheels': return `<rect x="-60" y="-52" width="120" height="16" rx="8" fill="#8b8fa8" stroke="${ink}" stroke-width="5"/>` + [-48, 48].map(x => `<circle cx="${x}" cy="-25" r="24" fill="#2a2140" stroke="${ink}" stroke-width="5"/><circle cx="${x}" cy="-25" r="9" fill="#ffd23f"/>`).join('');
+    case 'treads': return `<rect x="-90" y="-50" width="180" height="48" rx="24" fill="#2a2140" stroke="${ink}" stroke-width="5"/>` + [-60, -20, 20, 60].map(x => `<circle cx="${x}" cy="-26" r="12" fill="#8b8fa8" stroke="${ink}" stroke-width="3"/>`).join('');
+    case 'spring': return `<path d="M0,-50 ${Array.from({ length: 6 }, (_, i) => `l${i % 2 ? -26 : 26},7`).join(' ')}" stroke="${ink}" stroke-width="7" fill="none" stroke-linejoin="round"/><ellipse cx="0" cy="-6" rx="34" ry="10" fill="#ff8c42" stroke="${ink}" stroke-width="5"/>`;
+    case 'rocket': return `<path d="M-30,-50 L-46,-16 L-14,-16Z M30,-50 L14,-16 L46,-16Z" fill="#8b8fa8" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/><path d="M-38,-14 q8,24 16,0 M22,-14 q8,24 16,0" fill="#ff8c42" stroke="#ffd23f" stroke-width="4" class="blinky"/>`;
+    case 'tentacles': return [-60, -22, 22, 60].map((x, i) => { const d = `M${x},-60 q${i % 2 ? 22 : -22},26 0,40 q${i % 2 ? -18 : 18},12 ${i < 2 ? -14 : 14},16`; return `<path d="${d}" stroke="${ink}" stroke-width="24" fill="none" stroke-linecap="round"/><path d="${d}" stroke="${c}" stroke-width="13" fill="none" stroke-linecap="round"/>`; }).join('');
+    case 'fins': return [-40, 40].map(x => `<rect x="${x - 9}" y="-54" width="18" height="34" rx="8" fill="${dk}" stroke="${ink}" stroke-width="5"/><path d="M${x},-22 l${x > 0 ? 54 : -54},14 q${x > 0 ? 6 : -6},12 -10,14 l${x > 0 ? -44 : 44},0z" fill="#2ec4b6" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/>`).join('');
+    case 'float': return `<g class="blinky">${[-40, 0, 40].map(x => `<path d="M${x},-24 l4,9 l9,4 l-9,4 l-4,9 l-4,-9 l-9,-4 l9,-4z" fill="#fff6a0"/>`).join('')}</g>`;
+    default: return '';
+  }
+}
+function pattern(sp, B, dk, cid) {
+  if (sp.pattern === 'spots') return `<g clip-path="url(#${cid})" opacity=".55">${[[-50, -190, 22], [40, -210, 16], [55, -120, 26], [-40, -95, 14], [-75, -150, 12], [10, -70, 12]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${dk}"/>`).join('')}</g>`;
+  if (sp.pattern === 'stripes') return `<g clip-path="url(#${cid})" opacity=".45">${[-280, -230, -180, -130, -80].map(y => `<rect x="-140" y="${y}" width="280" height="22" fill="${dk}" transform="rotate(-12 0 ${y})"/>`).join('')}</g>`;
+  if (sp.pattern === 'bolts') return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => `<circle cx="${a * (B.spread + 22)}" cy="${b > 0 ? B.mouthY + 26 : B.eyeY - 40}" r="7" fill="#dfe6f0" stroke="${ink}" stroke-width="3"/>`).join('');
+  if (sp.pattern === 'panel') return `<rect x="-30" y="${B.mouthY + 22}" width="60" height="26" rx="6" fill="#24103d" stroke="${ink}" stroke-width="3"/><circle cx="-15" cy="${B.mouthY + 35}" r="6" fill="#ff4d6d" class="blinky"/><circle cx="0" cy="${B.mouthY + 35}" r="6" fill="#ffd23f"/><circle cx="15" cy="${B.mouthY + 35}" r="6" fill="#7dffa6" class="blinky" style="animation-delay:.3s"/>`;
+  return '';
+}
+function creature(sp) {
+  const B = BODY[sp.body] || BODY.round, c = COLORS[sp.color] || COLORS.purple, dk = shade(c, 0.3), cid = 'cl' + (++uid), robot = sp.kind === 'robot';
+  const shine = robot ? `<path d="M-50,${B.eyeY - 30} q20,-24 50,-26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round" opacity=".55"/>` : '';
+  return `<defs><clipPath id="${cid}">${B.el('#000', 'none', 0)}</clipPath></defs>` +
+    feet(sp, c, dk) + arms(sp, B, c, dk, false) + B.el(c, ink, 7) + pattern(sp, B, dk, cid) + shine +
+    `<g class="flour" opacity="0">${B.el('#fffdf8', 'none', 0)}</g>` +
+    eyes(sp, B) + mouth(sp, B) + `<g class="cheeks">${robot ? '' : `<ellipse cx="${-B.spread - 18}" cy="${B.mouthY - 8}" rx="13" ry="8" fill="#ff8fc6" opacity=".7"/><ellipse cx="${B.spread + 18}" cy="${B.mouthY - 8}" rx="13" ry="8" fill="#ff8fc6" opacity=".7"/>`}</g>` +
+    `<g class="ink" opacity="0"><ellipse cx="0" cy="${B.eyeY}" rx="${B.spread + 34}" ry="38" fill="#1a1030"/><circle cx="-30" cy="${B.eyeY + 44}" r="9" fill="#1a1030"/><circle cx="24" cy="${B.eyeY + 52}" r="11" fill="#1a1030"/></g>` +
+    top(sp, B, c, dk) + arms(sp, B, c, dk, true);
+}
+const headTop = (sp) => (BODY[sp.body] || BODY.round).top - (sp.top && sp.top !== 'none' ? 50 : 0);
+
+/* categories: what she can pick, per kind */
+const CATS = {
+  monster: { body: ['round', 'square', 'tri', 'star', 'heart', 'tall'], color: Object.keys(COLORS), eyes: [1, 2, 3, 4, 5], mouth: ['smile', 'grin', 'tongue', 'o', 'fangs'], top: ['none', 'horns', 'hair', 'ears', 'bow', 'antenna', 'flower', 'chef', 'helmet'], arms: ['arms', 'tiny', 'wings', 'none'], feet: ['legs', 'tentacles', 'spring', 'float', 'fins'], pattern: ['none', 'spots', 'stripes'] },
+  robot: { body: ['square', 'round', 'tri', 'star', 'heart', 'tall'], color: Object.keys(COLORS), eyes: [1, 2, 3, 4, 5], mouth: ['led', 'grille', 'zig', 'speaker', 'grin'], top: ['antenna', 'siren', 'flood', 'camera', 'dish', 'propeller', 'none', 'chef', 'helmet', 'flower'], arms: ['claw', 'spring', 'tiny', 'arms', 'none'], feet: ['wheels', 'treads', 'rocket', 'legs', 'spring', 'fins'], pattern: ['panel', 'bolts', 'none', 'stripes'] },
+};
+const TINY_CATS = ['body', 'color', 'eyes', 'top', 'feet'];
+const LOCKED = { flower: 'park', chef: 'cake', helmet: 'moon', fins: 'sea' };
+const avail = (kind, cat) => CATS[kind][cat].filter(o => !LOCKED[o] || st.parts.includes(o));
+const OPT_SAY = {
+  smile: 'Hee hee!', grin: 'Cheese!', tongue: 'Blehhh!', o: 'Ooooh!', fangs: 'Rawr!', led: 'Beep beep, smile!', grille: 'Bzzzt!', zig: 'Grrr, robot growl!', speaker: 'Hello hello hello!',
+  none: 'Nothing!', horns: 'Grrr, horns!', hair: 'Fluffy hair!', ears: 'Big floppy ears!', bow: 'So fancy!', antenna: 'Antenna! Beep beep!', flower: 'Flower crown!', chef: 'Chef hat!', helmet: 'Space helmet!', dish: 'A satellite dish!', propeller: 'Propeller! Whirrr!', siren: 'Wee woo! A siren light!', flood: 'A floodlight! So bright!', camera: 'A camera! Say cheese!',
+  arms: 'Wiggle arms!', tiny: 'Teeny tiny arms!', wings: 'Flap flap, wings!', claw: 'Grabby claws! Snap snap!', spring: 'Boing boing!',
+  legs: 'Stomp stomp!', tentacles: 'Squiggly wiggly!', float: 'Floaty! No feet!', fins: 'Flippers! Splish splash!', wheels: 'Vroom vroom!', treads: 'Rumble rumble!', rocket: 'Rocket feet! Whoosh!',
+  spots: 'Spots!', stripes: 'Stripes!', bolts: 'Bolts!', panel: 'Blinky lights!',
+};
+const NUM = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+function randSpec(kind, tiny) {
+  const C = CATS[kind], base = (cat) => C[cat].filter(o => !LOCKED[o]);
+  return { kind, body: pick(base('body')), color: pick(base('color')), eyes: ri(1, 3), mouth: pick(base('mouth')), top: pick(base('top')), arms: tiny ? 'tiny' : pick(base('arms')), feet: pick(base('feet')), pattern: kind === 'robot' ? 'panel' : 'none' };
+}
+function buddyName() { return pick(['Wob', 'Zib', 'Fluf', 'Bop', 'Glim', 'Noo', 'Squee', 'Doo', 'Pip', 'Zig', 'Bloo', 'Mop', 'Tink', 'Wig']) + pick(['ble', 'bo', 'zle', 'kins', 'boo', 'ster', 'ly', 'bit', 'doodle', 'wump']); }
+
+/* ---------------- actors ---------------- */
+let T = 0, scene = 'start';
+const actors = [];
+function makeActor(sp, s, x, gy) {
+  const g = svgEl('g', { 'data-actor': '1' }, L.actors);
+  g.innerHTML = `<ellipse class="sh" rx="80" ry="14" fill="#000" opacity=".16"/><g class="bt"><g class="breathe"></g></g>`;
+  const a = { sp, s, x, y: 0, gy, rot: 0, sx: 1, sy: 1, dir: 1, walking: false, el: g, bt: g.querySelector('.bt'), sh: g.querySelector('.sh'), inner: g.querySelector('.breathe'), hop: 0 };
+  g._a = a; redraw(a); actors.push(a); return a;
+}
+function redraw(a) { a.inner.innerHTML = creature(a.sp); }
+function dropActor(a) { a.el.remove(); const i = actors.indexOf(a); if (i >= 0) actors.splice(i, 1); }
+function render(a) {
+  const bob = a.walking ? Math.abs(Math.sin(T * 0.013)) * 16 * a.s : 0, cy = 140 * a.s, ly = a.gy - a.y - bob - a.hop;
+  a.bt.setAttribute('transform', `translate(${a.x.toFixed(1)} ${ly.toFixed(1)}) translate(0 ${-cy}) rotate(${a.rot.toFixed(1)}) translate(0 ${cy}) scale(${(a.dir * a.sx * a.s).toFixed(3)} ${(a.sy * a.s).toFixed(3)})`);
+  const k = Math.max(0.3, 1 - (a.y + a.hop) / 500);
+  a.sh.setAttribute('transform', `translate(${a.x.toFixed(1)} ${a.gy}) scale(${(a.s * k).toFixed(3)})`);
+}
+const headY = (a) => a.gy - a.y - a.hop + headTop(a.sp) * a.s * a.sy;
+const mouthPt = (a) => ({ x: a.x, y: a.gy - a.y + (BODY[a.sp.body] || BODY.round).mouthY * a.s });
+
+/* tween helpers */
+const anims = [];
+function fx(ms, fn) { return new Promise(res => anims.push({ t0: performance.now(), ms, fn, res })); }
+const easeIO = (p) => p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+let grav = 1;
+async function walkTo(a, tx, speed = 0.6) {
+  tx = clamp(tx, 230, 1370); const x0 = a.x, d = Math.abs(tx - x0); if (d < 6) return;
+  a.dir = tx > x0 ? 1 : -1; a.walking = true;
+  if (a.sp.feet === 'wheels' || a.sp.feet === 'treads') SFX.vroom();
+  await fx(d / speed * (grav > 1 ? 1.3 : 1), p => { a.x = x0 + (tx - x0) * p; });
+  a.walking = false;
+}
+function jump(a, h, ms, { dx = 0, spin = 0, toY = 0 } = {}) {
+  const x0 = a.x, y0 = a.y, r0 = a.rot; ms *= grav;
+  return fx(ms, p => { a.y = y0 + (toY - y0) * p + 4 * h * p * (1 - p); a.x = x0 + dx * p; a.rot = r0 + spin * p; });
+}
+function squash(a, k = 1) { return fx(500, p => { const w = Math.exp(-5 * p) * Math.cos(p * 14); a.sx = 1 + 0.35 * k * w; a.sy = 1 - 0.4 * k * w; }); }
+async function settle(a) { const r0 = a.rot % 360, y0 = a.y; await fx(300, p => { a.rot = r0 * (1 - p); a.y = y0 * (1 - p); }); a.rot = 0; a.y = 0; a.sx = a.sy = 1; }
+function dizzy(a, ms = 1400) {
+  const g = svgEl('g', {}); g.innerHTML = [0, 1, 2].map(i => `<path d="${starD(16, 7)}" fill="#ffd23f" stroke="${ink}" stroke-width="3" data-i="${i}"/>`).join('');
+  return fx(ms, p => { const hy = headY(a) - 10; [...g.children].forEach((s, i) => { const an = T * 0.008 + i * 2.1; s.setAttribute('transform', `translate(${a.x + Math.cos(an) * 70 * a.s} ${hy + Math.sin(an) * 18})`); }); if (p >= 1) g.remove(); }).then(() => g.remove());
+}
+function blinkAll() { for (const a of actors) if (Math.random() < 0.4 && !a.sleeping) { a.el.classList.add('blink'); setTimeout(() => a.el.classList.remove('blink'), 150); } }
+function setPart(a, cls, op) { const n = a.inner.querySelector('.' + cls); if (n) n.setAttribute('opacity', op); }
+
+/* particles */
+const parts = [];
+function burst(x, y, { n = 20, colors = ['#ff6fb5', '#ffd23f', '#9b7cf0', '#5fd3ff', '#7dffa6'], spd = 500, up = 400, g = 1200, life = 1.4, kind = 'dot', size = 10 } = {}) {
+  for (let i = 0; i < n; i++) {
+    let e; const col = pick(colors);
+    if (kind === 'star') e = svgEl('path', { d: starD(size, size * .45), fill: col, stroke: ink, 'stroke-width': 2 });
+    else if (kind === 'heart') e = svgEl('path', { d: `M0,${size} C${-size * 2},${-size * .4} ${-size * .6},${-size * 1.6} 0,${-size * .4} C${size * .6},${-size * 1.6} ${size * 2},${-size * .4} 0,${size}Z`, fill: col });
+    else if (kind === 'conf') e = svgEl('rect', { width: size * 1.2, height: size * .8, fill: col });
+    else e = svgEl('circle', { r: size * rand(.6, 1.2), fill: col, opacity: .9 });
+    parts.push({ e, x, y, vx: rand(-spd, spd), vy: -rand(up * .3, up), g, life, max: life, rot: rand(0, 360), vr: rand(-500, 500) });
+  }
+}
+const confetti = (x, y, n = 70) => burst(x, y, { n, kind: 'conf', spd: 500, up: 900, g: 1100, life: 2.6 });
+
+/* ---------------- loop ---------------- */
+let last = performance.now(), nextBlink = 0;
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; T = now;
+  for (let i = anims.length - 1; i >= 0; i--) { const an = anims[i], p = Math.min(1, (now - an.t0) / an.ms); an.fn(p); if (p >= 1) { anims.splice(i, 1); an.res(); } }
+  for (let i = parts.length - 1; i >= 0; i--) { const q = parts[i]; q.life -= dt; q.vy += q.g * dt * (grav > 1 ? .4 : 1); q.x += q.vx * dt; q.y += q.vy * dt; q.rot += q.vr * dt; q.e.setAttribute('transform', `translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${q.rot.toFixed(0)})`); q.e.setAttribute('opacity', Math.min(1, q.life / q.max * 2).toFixed(2)); if (q.life <= 0) { q.e.remove(); parts.splice(i, 1); } }
+  followBuds(dt);
+  if (scene === 'place' && place?.tick) place.tick(dt);
+  for (const a of actors) render(a);
+  if (now > nextBlink) { blinkAll(); nextBlink = now + rand(900, 2200); }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------------- hero + buds ---------------- */
+let hero = null, buds = [], busy = false, lastAct = performance.now();
+function followBuds(dt) {
+  if (!hero || scene === 'lab') return;
+  buds.forEach((b, i) => {
+    if (b.held) return;
+    const side = -hero.dir, tx = clamp(hero.x + side * (120 * hero.s + 70 + i * 85) * (hero.s / 1), 200, 1400), dx = tx - b.x;
+    b.x += dx * Math.min(1, dt * 3.2); b.gy += (hero.gy - b.gy) * Math.min(1, dt * 3.2);
+    b.walking = Math.abs(dx) > 8; if (Math.abs(dx) > 8) b.dir = dx > 0 ? 1 : -1; else b.dir = hero.x > b.x ? 1 : -1;
+  });
+}
+function spawnCast(x, gy, s) {
+  for (const a of actors.slice()) dropActor(a);
+  hero = makeActor(st.hero, s, x, gy);
+  buds = st.buds.map((sp, i) => makeActor(sp, s * 0.42, x - (i + 1) * 90, gy));
+}
+async function budsLaugh() { buds.forEach((b, i) => setTimeout(() => { SFX.giggle(1.6); jump(b, 60, 400); }, 150 + i * 160)); }
+async function gag(fn) {
+  lastAct = performance.now();
+  if (busy) return false; busy = true;
+  try { await fn(); } catch (e) { console.error(e); } finally { busy = false; if (hero) { hero.sx = hero.sy = 1; if (!hero.lying) { hero.rot = 0; } } }
+  return true;
+}
+
+/* ---------------- Beep ---------------- */
+function beepSVG() {
+  return `<svg viewBox="-75 -150 150 160"><circle cx="0" cy="-122" r="10" fill="#ffd23f" stroke="${ink}" stroke-width="4"/><path d="M0,-112 V-92" stroke="${ink}" stroke-width="5"/><circle cx="-62" cy="-46" r="13" fill="#ff8fc6" stroke="${ink}" stroke-width="4"/><circle cx="62" cy="-46" r="13" fill="#ff8fc6" stroke="${ink}" stroke-width="4"/><rect x="-60" y="-92" width="120" height="90" rx="26" fill="#beb2f4" stroke="${ink}" stroke-width="5"/><rect x="-48" y="-80" width="96" height="66" rx="16" fill="#24103d"/><circle cx="-20" cy="-54" r="9" fill="#7ff3ff"/><circle cx="20" cy="-54" r="9" fill="#7ff3ff"/><path d="M-16,-34 q16,14 32,0" stroke="#7ff3ff" stroke-width="6" fill="none" stroke-linecap="round"/></svg>`;
+}
+$('#beepBtn').innerHTML = beepSVG();
+let askLine = '';
+function ask(text, iconSvg) { askLine = text; const b = $('#ask'); if (iconSvg) { b.innerHTML = iconSvg; b.hidden = false; } else b.hidden = true; return say(text); }
+function clearAsk() { askLine = ''; $('#ask').hidden = true; }
+$('#beepBtn').addEventListener('pointerdown', (e) => { e.stopPropagation(); initAudio(); SFX.beepboop(); lastAct = performance.now(); say(askLine || pick(['Beep boop! Hi {n}!', 'You are a great buddy maker, {n}!', 'Tap things and see what happens!'])); });
+const dotsIcon = (n, filled = 0, col = '#ff4d6d') => `<svg viewBox="0 0 ${n * 44 + 8} 60">${Array.from({ length: n }, (_, i) => `<circle cx="${i * 44 + 26}" cy="30" r="17" fill="${i < filled ? col : '#fff'}" stroke="${ink}" stroke-width="5"/>`).join('')}</svg>`;
+function shapeEl(k, s, fill, stroke = ink, sw = 6) {
+  switch (k) {
+    case 'circle': return `<circle r="${s}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    case 'square': return `<rect x="${-s * .9}" y="${-s * .9}" width="${s * 1.8}" height="${s * 1.8}" rx="${s * .15}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    case 'triangle': return `<path d="M0,${-s * 1.05} L${s * 1.05},${s * .8} L${-s * 1.05},${s * .8}Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+    case 'star': return `<path d="${starD(s * 1.1, s * .5)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+    case 'heart': return `<path transform="scale(${s / 60})" d="M0,52 C-70,0 -70,-58 -30,-58 C-10,-58 0,-40 0,-32 C0,-40 10,-58 30,-58 C70,-58 70,0 0,52Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw * 60 / s}" stroke-linejoin="round"/>`;
+    case 'oval': return `<ellipse rx="${s * .7}" ry="${s * 1.05}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+  }
+  return '';
+}
+const shapeIcon = (k, col = '#ffd23f') => `<svg viewBox="-60 -60 120 120">${shapeEl(k, 44, col)}</svg>`;
+const swatch = (hex) => `<svg viewBox="-60 -60 120 120"><circle r="46" fill="${hex}" stroke="${ink}" stroke-width="7"/><path d="M-22,-24 q12,-14 30,-14" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round" opacity=".7"/></svg>`;
+function addStar(n = 1) { st.stars += n; save(); $('#starN').textContent = st.stars; const s = $('#stars'); s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop'); SFX.sparkle(); }
+$('#starN').textContent = st.stars;
+
+/* ---------------- screen helpers ---------------- */
+function fade() { const f = $('#fade'); f.classList.add('on'); return wait(260).then(() => { setTimeout(() => f.classList.remove('on'), 40); }); }
+function clearStage() { L.bg.innerHTML = ''; L.things.innerHTML = ''; L.fx.innerHTML = ''; parts.length = 0; anims.length = 0; things = {}; }
+function showUi(which) {
+  $('#labUi').hidden = which !== 'lab'; $('#goBtn').hidden = which !== 'lab'; $('#mapUi').hidden = which !== 'map';
+  $('#homeBtn').hidden = !(which === 'place' || (which === 'lab' && st.hero && !firstRun));
+  $('#beepHud').hidden = which === 'start'; $('#kindPick').hidden = true;
+}
+let things = {};
+function addThing(id, x, y, html, tap, extra = {}) {
+  const g = svgEl('g', { transform: `translate(${x} ${y})`, 'data-id': id, class: 'thing' }, L.things);
+  g.innerHTML = `<g class="ti">${html}</g>`;
+  const t = Object.assign({ id, x, y, el: g, ti: g.firstChild, tap }, extra); things[id] = t; return t;
+}
+function wig(t, cls = 'wig') { t.ti.classList.remove(cls); void t.ti.getBoundingClientRect(); t.ti.classList.add(cls); }
+const toSvg = (cx, cy) => { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+
+/* ================= LAB ================= */
+let lab = null, firstRun = !st.hero;
+function enterLab(mode, kind) {
+  scene = 'lab'; clearStage(); grav = 1;
+  L.bg.innerHTML = `<rect x="-400" y="0" width="2400" height="900" fill="url(#gLab)"/>
+    ${Array.from({ length: 14 }, (_, i) => `<circle cx="${i * 130 - 50}" cy="${80 + (i % 3) * 40}" r="${8 + (i % 4) * 4}" fill="#fff" opacity=".5"/>`).join('')}
+    <ellipse cx="800" cy="610" rx="300" ry="50" fill="#a58ae8"/><ellipse cx="800" cy="600" rx="280" ry="40" fill="#d8c8ff" stroke="${ink}" stroke-width="6"/>
+    <path d="M1150,610 l0,-30 l40,0 l0,30" fill="none"/>`;
+  for (const a of actors.slice()) dropActor(a); hero = null; buds = [];
+  showUi('lab');
+  const sp = mode === 'hero' && st.hero ? Object.assign({}, st.hero) : null;
+  lab = { mode, sp, cat: 'body', taps: 0, ch: null, chT: performance.now() + 14000 };
+  if (!sp) { pickKind(mode, kind); return; }
+  startLab();
+}
+function pickKind(mode) {
+  $('#kindPick').hidden = false; $('#labUi').hidden = true; $('#goBtn').hidden = true;
+  const m = { kind: 'monster', body: 'round', color: 'green', eyes: 3, mouth: 'fangs', top: 'horns', arms: 'arms', feet: 'tentacles', pattern: 'spots' };
+  const r = { kind: 'robot', body: 'square', color: 'blue', eyes: 2, mouth: 'led', top: 'siren', arms: 'claw', feet: 'wheels', pattern: 'panel' };
+  document.querySelector('[data-kind=monster]').innerHTML = `<svg viewBox="-170 -330 340 350">${creature(m)}</svg>`;
+  document.querySelector('[data-kind=robot]').innerHTML = `<svg viewBox="-170 -330 340 350">${creature(r)}</svg>`;
+  say(mode === 'tiny' ? 'Let\'s make a tiny buddy! A monster, or a robot?' : (firstRun ? 'Hi {n}! I\'m Beep! Let\'s make a buddy! Do you want a monster, or a robot?' : 'A monster, or a robot?'));
+}
+document.querySelectorAll('.kind').forEach(b => b.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); initAudio(); const kind = b.dataset.kind;
+  kind === 'robot' ? SFX.beepboop() : SFX.blorp();
+  lab.sp = randSpec(kind, lab.mode === 'tiny'); $('#kindPick').hidden = true; $('#labUi').hidden = false; $('#goBtn').hidden = false;
+  say(kind === 'robot' ? 'A robot! Beep boop! Now pick its parts!' : 'A monster! Rawr! Now pick its parts!');
+  startLab();
+}));
+const TAB_ICON = {
+  body: `<svg viewBox="0 0 64 64"><circle cx="20" cy="22" r="13" fill="#ffd23f" stroke="${ink}" stroke-width="4"/><rect x="34" y="10" width="22" height="22" rx="4" fill="#4cc9f0" stroke="${ink}" stroke-width="4"/><path d="M32,36 L48,58 L16,58Z" fill="#7dffa6" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/></svg>`,
+  color: `<svg viewBox="0 0 64 64"><path d="M32 6C14 6 4 20 4 32s10 26 24 26c6 0 6-6 4-10s2-8 8-8h8c8 0 12-6 12-12C60 16 48 6 32 6z" fill="#fffaf2" stroke="${ink}" stroke-width="4"/><circle cx="18" cy="28" r="6" fill="#ff4d6d"/><circle cx="28" cy="16" r="6" fill="#ffd23f"/><circle cx="42" cy="18" r="6" fill="#4cc9f0"/><circle cx="48" cy="30" r="5" fill="#9b5de5"/></svg>`,
+  eyes: `<svg viewBox="0 0 64 64"><ellipse cx="32" cy="32" rx="28" ry="20" fill="#fff" stroke="${ink}" stroke-width="4"/><circle cx="32" cy="32" r="11" fill="${ink}"/><circle cx="36" cy="28" r="4" fill="#fff"/></svg>`,
+  mouth: `<svg viewBox="0 0 64 64"><path d="M8 24 Q32 60 56 24 Z" fill="${ink}" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/><path d="M14 26 h36 v6 h-36z" fill="#fff"/><path d="M26 40 q6 10 14 0z" fill="#ff6f91"/></svg>`,
+  top: `<svg viewBox="0 0 64 64"><path d="M32 58 V22" stroke="${ink}" stroke-width="5"/><circle cx="32" cy="16" r="11" fill="#ffd23f" stroke="${ink}" stroke-width="4"/><path d="M8 58 q24 -20 48 0" fill="#c9b8ff" stroke="${ink}" stroke-width="4"/></svg>`,
+  arms: `<svg viewBox="0 0 64 64"><path d="M6 44 Q30 40 44 18" stroke="${ink}" stroke-width="12" fill="none" stroke-linecap="round"/><path d="M6 44 Q30 40 44 18" stroke="#ff8c42" stroke-width="6" fill="none" stroke-linecap="round"/><circle cx="46" cy="16" r="10" fill="#ff8c42" stroke="${ink}" stroke-width="4"/></svg>`,
+  feet: `<svg viewBox="0 0 64 64"><rect x="14" y="8" width="12" height="34" rx="5" fill="#9b5de5" stroke="${ink}" stroke-width="4"/><ellipse cx="26" cy="46" rx="20" ry="10" fill="#7a4fd6" stroke="${ink}" stroke-width="4"/><circle cx="48" cy="44" r="12" fill="#2a2140" stroke="${ink}" stroke-width="4"/><circle cx="48" cy="44" r="4" fill="#ffd23f"/></svg>`,
+  pattern: `<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#4ade80" stroke="${ink}" stroke-width="4"/><circle cx="22" cy="24" r="6" fill="#1f8a4c"/><circle cx="40" cy="22" r="4" fill="#1f8a4c"/><circle cx="38" cy="40" r="7" fill="#1f8a4c"/><circle cx="20" cy="42" r="4" fill="#1f8a4c"/></svg>`,
+};
+function labCats() { return lab.mode === 'tiny' ? TINY_CATS : Object.keys(CATS[lab.sp.kind]); }
+function startLab() {
+  hero = makeActor(lab.sp, lab.mode === 'tiny' ? 0.9 : 1, 800, 600);
+  const tabs = $('#tabs'); tabs.innerHTML = '';
+  for (const c of labCats()) { const b = document.createElement('button'); b.className = 'rb tab'; b.dataset.cat = c; b.innerHTML = TAB_ICON[c]; b.setAttribute('aria-label', c); tabs.appendChild(b); b.addEventListener('pointerdown', (e) => { e.preventDefault(); initAudio(); SFX.pop(); lab.cat = c; drawOpts(); lastAct = performance.now(); }); }
+  lab.cat = 'body'; drawOpts();
+  if (!firstRun || lab.mode === 'tiny') {}
+}
+function drawOpts() {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.cat === lab.cat));
+  const box = $('#opts'); box.innerHTML = '';
+  for (const o of avail(lab.sp.kind, lab.cat)) {
+    const b = document.createElement('button'); b.className = 'opt' + (lab.sp[lab.cat] === o ? ' on' : '') + (st.fresh.includes(o) ? ' new' : '');
+    const sp = Object.assign({}, lab.sp, { [lab.cat]: o });
+    b.innerHTML = `<svg viewBox="-170 -330 340 350">${creature(sp)}</svg>`;
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); initAudio(); choose(o); });
+    box.appendChild(b);
+  }
+}
+async function choose(o) {
+  lastAct = performance.now();
+  const cat = lab.cat; lab.sp[cat] = o; lab.taps++;
+  if (st.fresh.includes(o)) { st.fresh = st.fresh.filter(x => x !== o); save(); }
+  redraw(hero); drawOpts(); SFX.pop();
+  let line = OPT_SAY[o] || '';
+  if (cat === 'eyes') line = Array.from({ length: o }, (_, i) => NUM[i + 1]).join('! ') + '! ' + (o === 1 ? 'One eye!' : NUM[o] + ' eyes!');
+  if (cat === 'color') line = o + '!';
+  if (cat === 'body') line = SHAPE_NAME[o] === 'oval' ? 'An oval!' : 'A ' + SHAPE_NAME[o] + '!';
+  const a = hero;
+  if (!busy) gag(async () => {
+    if (cat === 'feet' && (o === 'spring' || o === 'rocket')) { SFX.boing(); await jump(a, 260, 800, { spin: 360 }); await squash(a); }
+    else if (cat === 'feet' && (o === 'wheels' || o === 'treads')) { SFX.vroom(); await fx(900, p => { a.x = 800 + Math.sin(p * Math.PI * 2) * 160; a.dir = Math.cos(p * Math.PI * 2) > 0 ? 1 : -1; }); a.x = 800; }
+    else if (cat === 'arms' && o === 'wings') { SFX.whoosh(); await jump(a, 160, 1000); }
+    else if (cat === 'eyes') { for (let i = 0; i < o; i++) { SFX.pop(); await jump(a, 40, 260); } }
+    else { SFX.boing(1 + Math.random()); await jump(a, 70, 380); await squash(a, .7); }
+  });
+  if (lab.ch && lab.sp[lab.ch.cat] === lab.ch.val) { const ch = lab.ch; lab.ch = null; clearAsk(); highlightTab(null); await say(line); addStar(); confetti(800, 300, 50); await say(pick(['You did it!', 'Yay! That\'s it!', 'Perfect!'])); lab.chT = performance.now() + 18000; return; }
+  say(line, { pitch: 1.5 });
+}
+function highlightTab(cat) { document.querySelectorAll('.tab').forEach(t => t.classList.toggle('nudge', t.dataset.cat === cat)); }
+function labChallenge() {
+  const cats = labCats().filter(c => ['eyes', 'color', 'body'].includes(c)), cat = pick(cats);
+  let val, text, icon;
+  if (cat === 'eyes') { do val = ri(1, 5); while (val === lab.sp.eyes); text = `Can you give your buddy ${NUM[val]} ${val === 1 ? 'eye' : 'eyes'}?`; icon = dotsIcon(val, val, '#fff'); icon = `<svg viewBox="0 0 ${val * 44 + 8} 60">${Array.from({ length: val }, (_, i) => `<circle cx="${i * 44 + 26}" cy="30" r="17" fill="#fff" stroke="${ink}" stroke-width="5"/><circle cx="${i * 44 + 29}" cy="32" r="8" fill="${ink}"/>`).join('')}</svg>`; }
+  else if (cat === 'color') { do val = pick(Object.keys(COLORS)); while (val === lab.sp.color); text = `Can you make your buddy ${val}?`; icon = swatch(COLORS[val]); }
+  else { do val = pick(CATS[lab.sp.kind].body); while (val === lab.sp.body); text = SHAPE_NAME[val] === 'oval' ? 'Can you make your buddy an oval?' : `Can you make your buddy a ${SHAPE_NAME[val]}?`; icon = shapeIcon(SHAPE_NAME[val]); }
+  lab.ch = { cat, val, t: performance.now() }; ask(text, icon);
+}
+setInterval(() => {
+  if (scene !== 'lab' || !lab || !hero || $('#kindPick').hidden === false) return;
+  const now = performance.now();
+  if (!lab.ch && now > lab.chT && lab.taps >= 3) labChallenge();
+  else if (lab.ch && now - lab.ch.t > 9000 && now - lastAct > 6000) { highlightTab(lab.ch.cat); lab.ch.t = now; say(askLine); }
+}, 1000);
+$('#goBtn').addEventListener('pointerdown', async (e) => {
+  e.preventDefault(); initAudio(); if (busy || !hero) return;
+  busy = true; clearAsk(); highlightTab(null); $('#labUi').hidden = true; $('#goBtn').hidden = true; $('#homeBtn').hidden = true;
+  const a = hero, sp = lab.sp;
+  try {
+    if (lab.mode === 'tiny') {
+      sp.name = buddyName(); SFX.shrink();
+      await fx(700, p => { a.s = 0.9 - 0.5 * easeOut(p); a.rot = 720 * p; }); a.rot = 0;
+      a.inner.parentNode.parentNode.classList.add('dance'); SFX.dance();
+      await buddySay(a, `Hi ${S.name}! I'm ${sp.name}!`);
+      st.buds.push(sp); if (st.buds.length > 3) st.buds.shift(); save();
+      await say(`${sp.name} will come with you on adventures!`);
+    } else {
+      const first = !st.hero; if (!sp.name) sp.name = buddyName();
+      st.hero = sp; save();
+      a.el.classList.add('dance'); SFX.dance(); confetti(800, 250, 90);
+      await jump(a, 200, 900, { spin: 360 }); await squash(a);
+      await buddySay(a, first ? `Hi ${S.name}! I'm ${sp.name}! I'm alive!` : `Ta da! It's me, ${sp.name}!`);
+      a.el.classList.remove('dance');
+      if (first) { addStar(); await say(`${sp.name} needs a tiny friend! Let's make one!`); busy = false; enterLab('tiny'); return; }
+    }
+    firstRun = false; busy = false; await fade(); enterMap(true);
+  } finally { busy = false; }
+});
+
+/* ================= MAP ================= */
+const PLACES = [
+  { id: 'park', x: 430, y: 560, col: '#4ade80', icon: `<circle cx="0" cy="-30" r="44" fill="#4ade80" stroke="${ink}" stroke-width="6"/><rect x="-8" y="0" width="16" height="36" fill="#a0522d" stroke="${ink}" stroke-width="5"/><circle cx="-14" cy="-36" r="8" fill="#ff4d6d"/><circle cx="16" cy="-20" r="8" fill="#ff4d6d"/><circle cx="8" cy="-50" r="8" fill="#ff4d6d"/>` },
+  { id: 'cake', x: 680, y: 330, col: '#ff6fb5', icon: `<path d="M-38,0 L-30,36 L30,36 L38,0Z" fill="#ff9fd0" stroke="${ink}" stroke-width="6" stroke-linejoin="round"/><path d="M-42,2 Q-44,-40 0,-44 Q44,-40 42,2Z" fill="#fff" stroke="${ink}" stroke-width="6"/><circle cx="0" cy="-54" r="10" fill="#ff4d6d" stroke="${ink}" stroke-width="4"/>` },
+  { id: 'moon', x: 1020, y: 260, col: '#bdbdd6', icon: `<path d="M18,-50 A52,52 0 1 0 30,36 A40,40 0 1 1 18,-50Z" fill="#fff6a0" stroke="${ink}" stroke-width="6" stroke-linejoin="round"/><circle cx="-14" cy="-10" r="7" fill="#e6d77a"/>` },
+  { id: 'sea', x: 1220, y: 560, col: '#3fa9f5', icon: `<path d="M-40,0 Q0,-40 34,0 Q0,40 -40,0Z" fill="#ff8c42" stroke="${ink}" stroke-width="6"/><path d="M30,0 L56,-22 L56,22Z" fill="#ff8c42" stroke="${ink}" stroke-width="6" stroke-linejoin="round"/><circle cx="-18" cy="-6" r="6" fill="${ink}"/>` },
+];
+const placeIdx = (id) => PLACES.findIndex(p => p.id === id);
+function enterMap(fromLab) {
+  scene = 'map'; clearStage(); grav = 1; showUi('map'); clearAsk();
+  $('#tinyBtn').innerHTML = `<svg viewBox="-170 -330 340 350">${creature(st.buds[st.buds.length - 1] || { kind: 'robot', body: 'round', color: 'pink', eyes: 2, mouth: 'led', top: 'antenna', arms: 'tiny', feet: 'wheels', pattern: 'none' })}</svg><svg viewBox="0 0 64 64" style="position:absolute;width:44px;height:44px;right:-6px;top:-6px"><circle cx="32" cy="32" r="28" fill="#2fbf71" stroke="#fffaf2" stroke-width="5"/><path d="M32 18v28M18 32h28" stroke="#fffaf2" stroke-width="8" stroke-linecap="round"/></svg>`;
+  $('#tinyBtn').style.position = 'relative';
+  L.bg.innerHTML = `<rect x="-400" y="0" width="2400" height="900" fill="url(#gMap)"/>
+    ${Array.from({ length: 18 }, (_, i) => `<path d="M${(i * 97) % 1600},${(i * 151) % 900} q15,-10 30,0 q15,10 30,0" stroke="#bfeaff" stroke-width="5" fill="none" opacity=".6"/>`).join('')}
+    <path d="M220,640 C120,420 330,200 620,230 C820,120 1180,130 1330,300 C1480,450 1430,700 1180,730 C900,800 520,780 220,640Z" fill="#ffe7a3" stroke="${ink}" stroke-width="7"/>
+    <path d="M260,620 C190,440 360,250 620,270 C820,170 1160,180 1290,320 C1420,460 1380,670 1170,690 C910,760 540,740 260,620Z" fill="#8be08b"/>
+    <path d="M430,560 C520,430 580,360 680,330 S900,260 1020,260 S1200,420 1220,560" stroke="#fffaf2" stroke-width="12" fill="none" stroke-dasharray="6 26" stroke-linecap="round"/>
+    <circle cx="300" cy="350" r="26" fill="#4ade80" stroke="${ink}" stroke-width="5"/><circle cx="1380" cy="440" r="20" fill="#4ade80" stroke="${ink}" stroke-width="5"/>`;
+  PLACES.forEach((p, i) => {
+    const open = i < st.unlocked, done = st.done[p.id] > 0;
+    addThing(p.id, p.x, p.y, `<g class="place ${open && !done ? 'glow' : ''}"><circle r="78" fill="${open ? p.col : '#9a9aae'}" stroke="${ink}" stroke-width="7"/><g ${open ? '' : 'opacity=".35"'}>${p.icon}</g>${open ? '' : `<g transform="translate(0 10)"><rect x="-26" y="-12" width="52" height="42" rx="8" fill="#ffd23f" stroke="${ink}" stroke-width="5"/><path d="M-15,-12 v-12 a15,15 0 0 1 30,0 v12" fill="none" stroke="${ink}" stroke-width="7"/></g>`}${done ? `<g transform="translate(58 -58)"><path d="${starD(26, 12)}" fill="#ffd23f" stroke="${ink}" stroke-width="4"/></g>` : ''}</g>`,
+      () => goPlace(p, i));
+  });
+  spawnCast(800, 520, 0.55);
+  if (fromLab) say(st.unlocked === 1 && !st.done.park ? `Let's go exploring! Tap the park!` : pick(['Where should we go?', 'Pick a place to explore!']));
+}
+async function goPlace(p, i) {
+  if (i >= st.unlocked) { SFX.wrong(); wig(things[p.id]); say(`That one is still locked! Finish the ${PLACES[i - 1].id === 'cake' ? 'cake shop' : PLACES[i - 1].id} first!`); return; }
+  await gag(async () => {
+    const a = hero, x0 = a.x, g0 = a.gy, tx = p.x, ty = p.y + 60;
+    a.dir = tx > x0 ? 1 : -1; SFX.boing();
+    for (let k = 1; k <= 3; k++) { const fx0 = a.x, fy0 = a.gy, nx = x0 + (tx - x0) * k / 3, ny = g0 + (ty - g0) * k / 3; await fx(420, q => { a.x = fx0 + (nx - fx0) * q; a.gy = fy0 + (ny - fy0) * q; a.y = 4 * 70 * q * (1 - q); }); SFX.pop(); }
+  });
+  await fade(); enterPlace(p.id);
+}
+$('#labBtn').addEventListener('pointerdown', async (e) => { e.preventDefault(); initAudio(); SFX.pop(); await fade(); enterLab('hero'); });
+$('#tinyBtn').addEventListener('pointerdown', async (e) => { e.preventDefault(); initAudio(); SFX.pop(); await fade(); enterLab('tiny'); });
+$('#homeBtn').addEventListener('pointerdown', async (e) => { e.preventDefault(); initAudio(); SFX.pop(); if (busy && scene !== 'place') return; busy = false; await fade(); enterMap(); });
+
+/* ================= PLACES ================= */
+const G = 790;
+let place = null;
+function level(id) { return st.done[id] || 0; }
+async function taskDone(id) {
+  clearAsk(); SFX.fanfare(); confetti(hero.x, 300, 100); addStar();
+  hero.el.classList.add('dance'); buds.forEach(b => b.el.classList.add('dance'));
+  await jump(hero, 200, 900, { spin: 360 }); await squash(hero);
+  hero.el.classList.remove('dance'); buds.forEach(b => b.el.classList.remove('dance'));
+  const first = !st.done[id]; st.done[id] = (st.done[id] || 0) + 1;
+  if (first) {
+    const part = Object.keys(LOCKED).find(k => LOCKED[k] === id);
+    if (part && !st.parts.includes(part)) {
+      st.parts.push(part); st.fresh.push(part);
+      if (part === 'fins') hero.sp.feet = 'fins'; else hero.sp.top = part;
+      st.hero = hero.sp; burst(hero.x, headY(hero), { n: 30, kind: 'star', spd: 300, up: 500, size: 14 }); SFX.sparkle(); redraw(hero);
+      await say({ flower: 'You won a flower crown!', chef: 'You won a chef hat!', helmet: 'You won a space helmet!', fins: 'You won flippers!' }[part]);
+    }
+    const idx = placeIdx(id);
+    if (idx + 1 < PLACES.length && st.unlocked <= idx + 1) { st.unlocked = idx + 2; await say('And a new place opened on the map!'); }
+    else if (idx + 1 >= PLACES.length) await say('You explored every place! You are a super explorer, {n}!');
+  } else await say(pick(['You did it again!', 'Super job!', 'Wow, you are so smart!']));
+  save();
+  setTimeout(() => { if (place && place.id === id) place.again(); }, 5000);
+}
+function enterPlace(id) {
+  scene = 'place'; clearStage(); showUi('place'); clearAsk(); grav = id === 'moon' ? 1.7 : 1;
+  spawnCast(480, G, 0.8);
+  place = PLACE_DEF[id](); place.id = id;
+  place.intro();
+}
+async function heroTap(a) {
+  if (a !== hero) {
+    if (busy) return;
+    lastAct = performance.now();
+    if (Math.random() < 0.45 && scene === 'place') {
+      a.held = true; SFX.boing(1.5); const x0 = a.x, g0 = a.gy;
+      await fx(600, p => { a.x = x0 + (hero.x - x0) * p; a.gy = g0 + (headY(hero) + 10 - g0) * p; a.y = 4 * 120 * p * (1 - p); a.rot = 360 * p; });
+      a.rot = 0; SFX.giggle(1.6); a.el.classList.add('dance'); await wait(1500); a.el.classList.remove('dance');
+      SFX.slide(); const g1 = a.gy; await fx(500, p => { a.gy = g1 + (G - g1) * p; a.x = hero.x + hero.dir * -60 * p; }); a.gy = G; a.held = false;
+    } else { SFX.squeak(); await jump(a, 90, 500, { spin: 360 * (Math.random() < .5 ? 1 : -1) }); a.rot = 0; SFX.giggle(1.7); }
+    return;
+  }
+  if (a.sleeping) { a.sleeping = false; a.el.classList.remove('blink'); SFX.boing(); gag(async () => { await jump(a, 220, 700); await squash(a); buddySay(a, 'I\'m awake!'); }); return; }
+  gag(async () => {
+    const r = ri(0, 5);
+    if (r === 0) { SFX.giggle(a.sp.kind === 'robot' ? .7 : 1.2); await fx(1200, p => { a.rot = Math.sin(p * 30) * 12; }); }
+    else if (r === 1) { SFX.boing(); await jump(a, 280, 900, { spin: 360 * a.dir }); await squash(a); }
+    else if (r === 2) { SFX.raspberry(); await fx(700, p => { a.sx = 1 + Math.sin(p * 40) * .08; }); }
+    else if (r === 3) { SFX.whoosh(); await fx(600, p => { a.rot = 90 * a.dir * easeOut(p); }); SFX.thud(); burst(a.x + a.dir * 120 * a.s, G, { n: 10, colors: ['#d8c8a0'], up: 200, spd: 150 }); await wait(700); await settle(a); budsLaugh(); }
+    else if (r === 4) { SFX.slide(); await fx(1000, p => { a.rot = 720 * p * a.dir; }); a.rot = 0; await dizzy(a, 1000); }
+    else { a.el.classList.add('dance'); SFX.dance(); await fx(1500, p => { a.hop = Math.abs(Math.sin(p * Math.PI * 6)) * 40; }); a.hop = 0; a.el.classList.remove('dance'); }
+    if (Math.random() < .5) budsLaugh();
+  });
+}
+/* idle silliness so something always happens */
+setInterval(() => {
+  if (scene !== 'place' || busy || !hero || hero.sleeping) return;
+  const now = performance.now();
+  if (now - lastAct > 22000 && place?.nag) { lastAct = now; place.nag(); return; }
+  if (now - lastAct < 9000 || Math.random() < 0.5) return;
+  const a = hero, r = ri(0, 3);
+  gag(async () => {
+    if (r === 0) { for (let i = 0; i < 3; i++) { SFX.hic(); await jump(a, 50, 250); await wait(450); } budsLaugh(); }
+    else if (r === 1) { SFX.sneezeUp(); await fx(900, p => { a.sx = a.sy = 1 + .12 * p; }); SFX.choo(); burst(a.x + a.dir * 90, headY(a) + 70, { n: 14, colors: ['#bfeaff', '#fff'], spd: 300, up: 120 }); await jump(a, 60, 300, { dx: -a.dir * 60 }); a.sx = a.sy = 1; }
+    else if (r === 2) { SFX.whoosh(); await fx(250, p => { a.rot = -30 * a.dir * p; }); await jump(a, 50, 400, { dx: a.dir * 40 }); await fx(300, p => { a.rot = (-30 + 120 * p) * a.dir; }); SFX.thud(); await wait(500); await settle(a); budsLaugh(); }
+    else { SFX.zz(); a.sleeping = true; a.el.classList.add('blink'); const zt = setInterval(() => { if (!a.sleeping || scene !== 'place') return clearInterval(zt); const z = svgEl('text', { x: 0, y: 0, 'font-size': 46, 'font-weight': 800, fill: '#fffaf2', stroke: ink, 'stroke-width': 2 }); z.textContent = 'z'; parts.push({ e: z, x: a.x + 50, y: headY(a), vx: rand(20, 60), vy: -80, g: 0, life: 1.6, max: 1.6, rot: 0, vr: rand(-30, 30) }); SFX.zz(); }, 900); setTimeout(() => { if (a.sleeping) { a.sleeping = false; a.el.classList.remove('blink'); } }, 9000); }
+  });
+}, 3000);
+
+/* generic pick-the-right-one task (colors, shapes, sizes) */
+function pickTask({ id, rounds = 3, make, drawItems, onRight, onWrong, icon, askText, rightText, wrongText }) {
+  const T = { round: 0, active: false, target: null, items: [] };
+  T.start = () => { T.round = 0; T.active = true; T.next(); };
+  T.next = () => { const m = make(level(id)); T.items = m.items; T.target = m.target; drawItems(T.items, T); ask(askText(T.target), icon(T.target)); };
+  T.pick = (item) => gag(async () => {
+    if (!T.active) { await onRight(item, true); return; }
+    if (item.key === T.target) {
+      await onRight(item); T.round++;
+      if (T.round >= rounds) { T.active = false; await say(rightText(item.key)); await taskDone(id); }
+      else { await say(rightText(item.key) + ' ' + pick(['Again!', 'One more!', 'Let\'s do another!'])); T.next(); }
+    } else { await onWrong(item); await say(wrongText(item.key, T.target)); }
+  });
+  T.nag = () => { if (!T.active) return; say(askLine); for (const it of T.items) if (it.key === T.target && it.t) { it.t.ti.classList.add('glow'); setTimeout(() => it.t.ti.classList.remove('glow'), 4000); } };
+  return T;
+}
+
+const PLACE_DEF = {
+  /* ---------- PARK: counting apples, slide, banana, puddle, sneezy flower ---------- */
+  park() {
+    L.bg.innerHTML = `<rect x="-400" y="0" width="2400" height="900" fill="url(#gPark)"/><circle cx="1360" cy="130" r="70" fill="#ffd23f" stroke="${ink}" stroke-width="6"/>
+      ${[[300, 140], [800, 90], [1100, 200]].map(([x, y]) => `<g transform="translate(${x} ${y})"><ellipse rx="90" ry="34" fill="#fff"/><ellipse cx="-40" cy="-20" rx="44" ry="34" fill="#fff"/><ellipse cx="30" cy="-28" rx="50" ry="40" fill="#fff"/></g>`).join('')}
+      <ellipse cx="300" cy="820" rx="700" ry="260" fill="#6fcf6f"/><ellipse cx="1300" cy="840" rx="760" ry="280" fill="#5cc25c"/>
+      <rect x="-400" y="${G - 10}" width="2400" height="200" fill="#7bdc6b"/><path d="M-400,${G - 10} H2000" stroke="#4fa84a" stroke-width="6"/>
+      ${Array.from({ length: 30 }, (_, i) => `<path d="M${i * 60 - 200},${G + 40 + (i % 3) * 25} l6,-16 l6,16" stroke="#4fa84a" stroke-width="4" fill="none"/>`).join('')}`;
+    let target = 3, count = 0, active = false;
+    addThing('slide', 330, G, `<path d="M-80,0 L-50,-232 M-30,0 L-0,-232" stroke="${ink}" stroke-width="10"/><path d="M-80,0 L-50,-232 M-30,0 L-0,-232" stroke="#ff4d6d" stroke-width="5"/>${[0, 1, 2, 3, 4].map(i => `<path d="M${-76 + i * 6},${-30 - i * 44} h46" stroke="${ink}" stroke-width="6"/>`).join('')}<rect x="-58" y="-244" width="70" height="16" rx="6" fill="#ffd23f" stroke="${ink}" stroke-width="5"/><path d="M8,-238 Q80,-200 150,-40 Q170,-6 200,-6 L200,10 Q150,14 130,-30 Q70,-180 0,-216Z" fill="#ffd23f" stroke="${ink}" stroke-width="6" stroke-linejoin="round"/><path d="M190,0 V-6" stroke="${ink}" stroke-width="8"/>`, slideGag);
+    const banana = addThing('banana', 600, G - 4, `<path d="M-34,0 Q-30,-30 0,-34 Q30,-30 34,0 Q20,-14 0,-16 Q-20,-14 -34,0Z" fill="#ffe14d" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/><path d="M-6,-34 l4,-10" stroke="${ink}" stroke-width="5"/>`, bananaGag);
+    addThing('puddle', 800, G + 8, `<ellipse rx="110" ry="24" fill="#5fc8ff" stroke="${ink}" stroke-width="5"/><ellipse cx="-30" cy="-6" rx="30" ry="6" fill="#bfeaff"/>`, puddleGag);
+    const tree = addThing('tree', 1030, G, `<rect x="-26" y="-260" width="52" height="260" rx="10" fill="#a0522d" stroke="${ink}" stroke-width="6"/><circle cx="0" cy="-360" r="140" fill="#3fbf5a" stroke="${ink}" stroke-width="7"/><circle cx="-90" cy="-300" r="70" fill="#3fbf5a" stroke="${ink}" stroke-width="7"/><circle cx="90" cy="-300" r="70" fill="#3fbf5a" stroke="${ink}" stroke-width="7"/><path d="M-90,-300 a70,70 0 0 1 0,0" /><g class="apples">${[[-60, -400], [40, -430], [90, -340], [-20, -320], [-100, -310], [10, -380]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="17" fill="#ff4d6d" stroke="${ink}" stroke-width="4"/><path d="M${x},${y - 16} l4,-8" stroke="${ink}" stroke-width="4"/>`).join('')}</g>`, appleGag);
+    const basket = addThing('basket', 1200, G, `<g class="inb"></g><path d="M-62,-60 L-50,0 L50,0 L62,-60Z" fill="#d2945a" stroke="${ink}" stroke-width="6" stroke-linejoin="round"/><path d="M-56,-40 H56 M-52,-20 H52" stroke="#a0662f" stroke-width="5"/><path d="M-50,-60 Q0,-130 50,-60" stroke="${ink}" stroke-width="7" fill="none"/>`, () => gag(async () => { await walkTo(hero, 1130); SFX.pop(); say(count ? `We have ${NUM[count] || count} apples!` : 'The basket is empty! Shake the tree!'); }));
+    addThing('flower', 1340, G, `<path d="M0,0 Q-10,-80 0,-150" stroke="#2f9a4a" stroke-width="10" fill="none"/><ellipse cx="-24" cy="-70" rx="24" ry="10" fill="#4ade80" stroke="${ink}" stroke-width="4" transform="rotate(-30 -24 -70)"/><g transform="translate(0 -170)">${[0, 60, 120, 180, 240, 300].map(a => `<circle cx="${(36 * Math.cos(a * Math.PI / 180)).toFixed(0)}" cy="${(36 * Math.sin(a * Math.PI / 180)).toFixed(0)}" r="26" fill="#ff6fb5" stroke="${ink}" stroke-width="5"/>`).join('')}<circle r="24" fill="#ffd23f" stroke="${ink}" stroke-width="5"/></g>`, sneezeGag);
+    const icon = () => dotsIcon(target, count);
+    function startTask() { target = clamp(3 + level('park'), 3, 8); count = 0; active = true; basket.ti.querySelector('.inb').innerHTML = ''; ask(`Let's count apples! Shake the tree and catch ${NUM[target]} apples for the basket!`, icon()); }
+    async function slideGag() { gag(async () => { const a = hero; await walkTo(a, 250); SFX.ladder?.(); for (let i = 0; i < 5; i++) { tone(400 + i * 60, .06, { type: 'square', vol: .05 }); } await fx(900, p => { a.y = 232 * p; a.x = 250 + 40 * p; }); a.dir = 1; await wait(250); SFX.slide(); await fx(650, p => { const q = p * p; a.x = 290 + 230 * q; a.y = 232 - 222 * q; a.rot = 25 * q; }); SFX.whoosh(); await jump(a, 150, 800, { dx: 220, spin: 335, toY: 0 }); a.rot = 0; SFX.thud(); await squash(a, 1.3); budsLaugh(); await dizzy(a, 1200); }); }
+    async function bananaGag() { gag(async () => { const a = hero; await walkTo(a, banana.x - 140); a.dir = 1; await walkTo(a, banana.x, 1.0); SFX.whoosh(); banana.ti.style.transition = 'transform .6s'; banana.ti.style.transform = 'translate(-90px,-240px) rotate(540deg)'; await jump(a, 130, 600, { dx: 70, spin: -100 }); SFX.thud(); a.rot = -90; burst(a.x, G, { n: 8, colors: ['#ffe14d'], up: 200 }); await dizzy(a, 1100); banana.ti.style.transform = ''; budsLaugh(); await settle(a); }); }
+    async function puddleGag() { gag(async () => { const a = hero; await walkTo(a, 690); a.dir = 1; SFX.boing(); await jump(a, 180, 700, { dx: 110 }); SFX.splash(); burst(800, G, { n: 40, colors: ['#5fc8ff', '#bfeaff', '#fff'], spd: 450, up: 700, size: 9 }); await squash(a, 1.4); buds.forEach(b => jump(b, 70, 500, { dx: (b.x < 800 ? -60 : 60) })); if (Math.random() < .5) { SFX.slide(); await fx(800, p => { a.rot = 360 * p; a.x = 800 + 100 * p; }); a.rot = 0; await dizzy(a, 900); } budsLaugh(); }); }
+    async function sneezeGag() { gag(async () => { const a = hero; await walkTo(a, 1255); a.dir = 1; wig(things.flower); SFX.sneezeUp(); await fx(1100, p => { a.sx = a.sy = 1 + .18 * p; a.rot = -10 * p; }); SFX.choo(); burst(1340, G - 170, { n: 30, colors: ['#ff6fb5', '#ffd23f'], spd: 300, up: 300, size: 12 }); a.sx = a.sy = 1; buds.forEach((b, i) => jump(b, 120, 900, { dx: -260 - i * 40, spin: -720 })); await jump(a, 160, 900, { dx: -300, spin: -360 }); a.rot = 0; SFX.thud(); await squash(a); budsLaugh(); }); }
+    async function appleGag() {
+      gag(async () => {
+        const a = hero; await walkTo(a, 1000); wig(tree); noise(0.5, { freq: 3000, vol: .12 });
+        const ax = 1000 + rand(-30, 30), ay0 = G - 400, ap = svgEl('g', {}); ap.innerHTML = `<circle r="20" fill="#ff4d6d" stroke="${ink}" stroke-width="4"/><path d="M0,-19 l5,-10" stroke="${ink}" stroke-width="4"/><ellipse cx="9" cy="-24" rx="9" ry="5" fill="#4ade80"/>`;
+        const r = Math.random(), hy = headY(a) - 18;
+        await fx(450, p => ap.setAttribute('transform', `translate(${ax} ${ay0 + (hy - ay0) * p * p})`));
+        if (r < .45) { SFX.bonk(); squash(a, 1.2); dizzy(a, 1100); } else { SFX.pop(); await jump(a, 60, 300); }
+        const bx = 1200 + rand(-25, 25), by = G - 70;
+        await fx(650, p => ap.setAttribute('transform', `translate(${ax + (bx - ax) * p} ${hy + (by - hy) * p - Math.sin(p * Math.PI) * 220}) rotate(${p * 400})`));
+        ap.remove(); SFX.pop(); count++;
+        const inb = basket.ti.querySelector('.inb'); inb.innerHTML += `<circle cx="${((count * 23) % 80) - 40}" cy="${-62 - Math.floor((count - 1) / 4) * 16}" r="17" fill="#ff4d6d" stroke="${ink}" stroke-width="4"/>`;
+        if (r < .45) budsLaugh();
+        if (active) {
+          $('#ask').innerHTML = icon();
+          await say(count <= 10 ? NUM[count] + '!' : String(count), { pitch: 1.6 });
+          if (count >= target) { active = false; await say(`${NUM[target]} apples! You counted them all!`); await taskDone('park'); }
+        } else await say(pick(['Yum!', 'Another apple!', 'Bonk!']), { pitch: 1.6 });
+      });
+    }
+    return { intro: async () => { await say(pick([`The park! Look, a slide! And an apple tree!`, `We're at the park!`])); startTask(); }, nag: () => { if (active) { say(askLine); tree.ti.classList.add('glow'); setTimeout(() => tree.ti.classList.remove('glow'), 4000); } }, again: () => startTask() };
+  },
+
+  /* ---------- CAKE SHOP: colors, jelly, flour ---------- */
+  cake() {
+    L.bg.innerHTML = `<rect x="-400" y="0" width="2400" height="900" fill="#ffd6e8"/>${Array.from({ length: 24 }, (_, i) => `<rect x="${i * 100 - 400}" y="0" width="50" height="${G}" fill="#ffe6f1"/>`).join('')}
+      <rect x="-400" y="${G - 6}" width="2400" height="200" fill="#fff"/>${Array.from({ length: 30 }, (_, i) => `<rect x="${i * 80 - 400}" y="${G - 6 + (i % 2) * 0}" width="40" height="40" fill="#ffb3d1"/><rect x="${i * 80 - 360}" y="${G + 34}" width="40" height="40" fill="#ffb3d1"/>`).join('')}
+      <g transform="translate(1180 160)"><rect x="-120" y="0" width="240" height="180" rx="12" fill="#bfeaff" stroke="${ink}" stroke-width="7"/><path d="M0,0 V180 M-120,90 H120" stroke="${ink}" stroke-width="6"/><path d="M-140,-10 Q-100,120 -150,200 L-150,-10Z M140,-10 Q100,120 150,200 L150,-10Z" fill="#ff6fb5" stroke="${ink}" stroke-width="5"/></g>
+      <rect x="250" y="240" width="380" height="16" rx="6" fill="#a0662f" stroke="${ink}" stroke-width="5"/>${[300, 380, 470, 560].map((x, i) => `<rect x="${x - 26}" y="170" width="52" height="70" rx="10" fill="${['#bfeaff', '#fff6a0', '#d8c8ff', '#ffd0a0'][i]}" stroke="${ink}" stroke-width="5"/><rect x="${x - 30}" y="160" width="60" height="16" rx="5" fill="#ff6fb5" stroke="${ink}" stroke-width="4"/>`).join('')}
+      <rect x="700" y="${G - 200}" width="500" height="200" rx="14" fill="#ff9fd0" stroke="${ink}" stroke-width="7"/><rect x="684" y="${G - 216}" width="532" height="28" rx="12" fill="#fff" stroke="${ink}" stroke-width="7"/>${[760, 880, 1000, 1120].map(x => `<path d="M${x},${G - 170} v140" stroke="#ff6fb5" stroke-width="8" stroke-linecap="round"/>`).join('')}`;
+    addThing('jelly', 340, G, `<ellipse cx="0" cy="0" rx="120" ry="18" fill="#fff" stroke="${ink}" stroke-width="6"/><g class="jiggle" style="transform-box:fill-box;transform-origin:50% 100%"><path d="M-90,-4 Q-100,-150 0,-160 Q100,-150 90,-4Z" fill="#4ade80" fill-opacity=".85" stroke="${ink}" stroke-width="6"/><path d="M-50,-110 q10,-24 40,-30" stroke="#d9ffe6" stroke-width="10" fill="none" stroke-linecap="round"/><circle cx="0" cy="-168" r="16" fill="#ff4d6d" stroke="${ink}" stroke-width="5"/></g>`, jellyGag);
+    addThing('flour', 1340, G, `<path d="M-60,0 L-70,-150 Q-60,-180 -30,-170 L30,-170 Q60,-180 70,-150 L60,0Z" fill="#fffdf8" stroke="${ink}" stroke-width="6" stroke-linejoin="round"/><path d="M-30,-170 q30,-30 60,0" fill="#fffdf8" stroke="${ink}" stroke-width="6"/><g transform="translate(0 -80)" stroke="#d2945a" stroke-width="6" stroke-linecap="round"><path d="M0,40 V-40"/><path d="M0,-30 l-14,-12 M0,-30 l14,-12 M0,-10 l-14,-12 M0,-10 l14,-12 M0,10 l-14,-12 M0,10 l14,-12"/></g>`, flourGag);
+    const cupPos = [770, 880, 990, 1100], CY = G - 216;
+    const cup = (hex) => `<path d="M-30,0 L-24,-46 L24,-46 L30,0Z" fill="#ffd0a0" stroke="${ink}" stroke-width="5" stroke-linejoin="round"/><path d="M-34,-44 Q-36,-86 0,-90 Q36,-86 34,-44Z" fill="${hex}" stroke="${ink}" stroke-width="5"/><circle cx="0" cy="-96" r="9" fill="#ff4d6d" stroke="${ink}" stroke-width="4"/><circle cx="-12" cy="-62" r="3" fill="#fff"/><circle cx="12" cy="-70" r="3" fill="#fff"/>`;
+    const task = pickTask({
+      id: 'cake',
+      make: (lv) => { const n = clamp(3 + lv, 3, 4), cols = shuffle(Object.keys(COLORS)).slice(0, n); return { items: cols.map(c => ({ key: c })), target: pick(cols) }; },
+      drawItems: (items, T) => { Object.keys(things).filter(k => k.startsWith('cup')).forEach(k => { things[k].el.remove(); delete things[k]; }); items.forEach((it, i) => { it.t = addThing('cup' + i, cupPos[i], CY, cup(COLORS[it.key]), () => T.pick(it)); }); },
+      onRight: async (it) => { await eat(it, true); },
+      onWrong: async (it) => { await eat(it, false); },
+      icon: (c) => `<svg viewBox="-50 -110 100 120">${cup(COLORS[c])}</svg>`,
+      askText: (c) => pick([`Can you find the ${c} cupcake?`, `Which cupcake is ${c}?`, `Feed your buddy the ${c} cupcake!`]),
+      rightText: (c) => pick([`Yes! ${c}! Yum yum!`, `That's ${c}! Delicious!`]),
+      wrongText: (k, t) => `Hee hee, that one was ${k}! Can you find the ${t} one?`,
+    });
+    async function eat(it, right) {
+      const a = hero; await walkTo(a, it.t.x - 70); a.dir = 1;
+      await jump(a, 90, 400); const m = mouthPt(a), x0 = it.t.x, y0 = CY;
+      await fx(350, p => it.t.el.setAttribute('transform', `translate(${x0 + (m.x - x0) * p} ${y0 + (m.y + 40 - y0) * p}) scale(${1 - .8 * p})`));
+      it.t.el.setAttribute('opacity', 0); SFX.chomp(); burst(m.x, m.y, { n: 12, colors: [COLORS[it.key], '#ffd0a0'], spd: 200, up: 200, size: 6 });
+      await fx(700, p => { a.sx = 1 + Math.sin(p * 20) * .1; a.sy = 1 - Math.sin(p * 20) * .1; });
+      if (!right) { SFX.wrong(); await fx(600, p => { a.rot = Math.sin(p * 18) * 10; }); a.rot = 0; budsLaugh(); }
+      else { SFX.sparkle(); burst(a.x, headY(a), { n: 10, kind: 'heart', colors: ['#ff6fb5'], spd: 150, up: 300, size: 12 }); }
+      setTimeout(() => { if (it.t.el.isConnected) { it.t.el.setAttribute('transform', `translate(${x0} ${y0})`); it.t.el.setAttribute('opacity', 1); wig(it.t); } }, right ? 99999 : 300);
+    }
+    async function jellyGag() { gag(async () => { const a = hero, j = things.jelly; await walkTo(a, 230); a.dir = 1; SFX.boing(); await jump(a, 140, 600, { dx: 110, toY: 150 }); wig(j, 'squish'); SFX.boing(1.5); await jump(a, 650, 1500, { toY: 150, spin: 360 }); wig(j, 'squish'); SFX.boing(2); a.rot = 0; await jump(a, 200, 900, { dx: 200, toY: 0, spin: 450 * a.dir }); SFX.thud(); a.rot = 90; await squash(a); budsLaugh(); await wait(500); await settle(a); }); }
+    async function flourGag() { gag(async () => { const a = hero; await walkTo(a, 1240); a.dir = 1; wig(things.flour, 'squish'); SFX.choo(); burst(1300, G - 160, { n: 50, colors: ['#ffffff', '#f7f1e3'], spd: 300, up: 400, size: 22, g: 200, life: 1.8 }); setPart(a, 'flour', .92); await wait(1200); SFX.wrong(); await fx(800, p => { a.rot = Math.sin(p * 12) * 6; }); SFX.sneezeUp(); await wait(900); SFX.choo(); burst(a.x, headY(a) + 60, { n: 40, colors: ['#ffffff'], spd: 400, up: 300, size: 18, g: 300 }); await jump(a, 90, 400, { dx: -60 }); setPart(a, 'flour', 0); budsLaugh(); }); }
+    return { intro: async () => { await say('The cake shop! Mmm, cupcakes!'); task.start(); }, nag: task.nag, again: task.start };
+  },
+
+  /* ---------- MOON: shapes, crater bounce, alien ---------- */
+  moon() {
+    const stars = Array.from({ length: 70 }, (_, i) => `<circle cx="${(i * 233) % 2000 - 200}" cy="${(i * 97) % 560}" r="${1.5 + (i % 3)}" fill="#fff" opacity="${.4 + (i % 5) * .12}"/>`).join('');
+    L.bg.innerHTML = `<rect x="-400" y="0" width="2400" height="900" fill="url(#gMoon)"/>${stars}
+      <g transform="translate(1320 170)"><circle r="80" fill="#3fa9f5" stroke="${ink}" stroke-width="6"/><path d="M-50,-30 q30,-20 50,10 q10,30 -20,40 q-30,0 -30,-50Z M20,30 q30,-10 40,10 q-10,20 -40,-10Z" fill="#4ade80"/></g>
+      <g transform="translate(330 200)"><circle r="40" fill="#ff8c42" stroke="${ink}" stroke-width="5"/><ellipse rx="80" ry="16" fill="none" stroke="#ffd23f" stroke-width="7" transform="rotate(-18)"/></g>
+      <path d="M-400,${G - 30} Q200,${G - 90} 700,${G - 40} T1700,${G - 50} V900 H-400Z" fill="#c9c9e0" stroke="${ink}" stroke-width="6"/><rect x="-400" y="${G}" width="2400" height="200" fill="#c9c9e0"/>
+      ${[[150, G + 60, 50], [600, G + 70, 34], [980, G + 50, 60], [1450, G + 80, 40]].map(([x, y, r]) => `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * .3}" fill="#a9a9c8"/>`).join('')}`;
+    addThing('crater', 380, G + 10, `<ellipse rx="120" ry="30" fill="#8d8db0" stroke="${ink}" stroke-width="6"/><ellipse cy="6" rx="90" ry="18" fill="#6f6f96"/>`, craterGag);
+    const alien = addThing('alien', 1290, G + 10, `<clipPath id="alClip"><rect x="-130" y="-400" width="260" height="400"/></clipPath><g clip-path="url(#alClip)"><g class="al" transform="translate(0 110)"><path d="M0,-40 V-80" stroke="${ink}" stroke-width="5"/><circle cx="0" cy="-86" r="9" fill="#ff6fb5" stroke="${ink}" stroke-width="4"/><ellipse cx="0" cy="-10" rx="56" ry="48" fill="#7dffa6" stroke="${ink}" stroke-width="6"/>${[-22, 0, 22].map((x, i) => `<circle cx="${x}" cy="${-20 + (i === 1 ? -10 : 0)}" r="11" fill="#fff" stroke="${ink}" stroke-width="3"/><circle cx="${x + 2}" cy="${-18 + (i === 1 ? -10 : 0)}" r="5" fill="${ink}"/>`).join('')}<path d="M-16,10 q16,14 32,0" stroke="${ink}" stroke-width="5" fill="none" stroke-linecap="round"/></g></g><path d="M-110,0 a110,26 0 0 0 220,0" fill="#c9c9e0"/><ellipse rx="110" ry="26" fill="none" stroke="${ink}" stroke-width="6"/>`, alienGag);
+    const rockX = [640, 790, 940, 1090], SH = ['circle', 'square', 'triangle', 'star', 'heart'];
+    const task = pickTask({
+      id: 'moon',
+      make: (lv) => { const n = lv ? 4 : 3, ks = shuffle(SH).slice(0, n); return { items: ks.map(k => ({ key: k })), target: pick(ks) }; },
+      drawItems: (items, T) => { Object.keys(things).filter(k => k.startsWith('rock')).forEach(k => { things[k].el.remove(); delete things[k]; }); items.forEach((it, i) => { it.t = addThing('rock' + i, rockX[i], G - 46, `<g>${shapeEl(it.key, 44, '#a99bd6', ink, 7)}<g opacity=".45">${shapeEl(it.key, 22, '#fff6a0', 'none', 0)}</g></g>`, () => T.pick(it)); }); },
+      onRight: async (it) => { await lift(it, true); },
+      onWrong: async (it) => { await lift(it, false); },
+      icon: (k) => shapeIcon(k, '#a99bd6'),
+      askText: (k) => pick([`Can you find the ${k} moon rock?`, `Which moon rock is a ${k}?`]),
+      rightText: (k) => `Yes! A ${k}! It flew up to the stars!`,
+      wrongText: (k, t) => `Oof! That's a ${k}! Can you find the ${t}?`,
+    });
+    async function lift(it, right) {
+      const a = hero, t = it.t; await walkTo(a, t.x - 60); a.dir = 1;
+      const x0 = t.x, y0 = t.y; SFX.pop();
+      await fx(500, p => t.el.setAttribute('transform', `translate(${x0 + (a.x - x0) * p} ${y0 + (headY(a) - 50 - y0) * p})`));
+      if (right) { SFX.sparkle(); await jump(a, 80, 500); burst(a.x, headY(a) - 50, { n: 24, kind: 'star', colors: ['#fff6a0', '#ffd23f'], spd: 250, up: 400, size: 12 }); const y1 = headY(a) - 50; await fx(900, p => t.el.setAttribute('transform', `translate(${a.x} ${y1 - 700 * p * p}) rotate(${p * 360})`)); t.el.remove(); delete things[t.id]; }
+      else { SFX.thud(); await fx(500, p => { a.sy = 1 - .45 * Math.sin(Math.min(1, p * 2) * Math.PI / 2); a.sx = 1 + .3 * Math.sin(Math.min(1, p * 2) * Math.PI / 2); t.el.setAttribute('transform', `translate(${a.x} ${headY(a) - 40})`); }); budsLaugh(); await wait(500); await fx(400, p => t.el.setAttribute('transform', `translate(${a.x + (x0 - a.x) * p} ${headY(a) - 40 + (y0 - headY(a) + 40) * p})`)); a.sx = a.sy = 1; await squash(a, .6); }
+    }
+    async function craterGag() { gag(async () => { const a = hero; await walkTo(a, 380); SFX.boing(.7); await squash(a, 1.3); SFX.boing(1.3); await jump(a, 480, 1500, { spin: 720 }); a.rot = 0; SFX.thud(); await squash(a); budsLaugh(); }); }
+    async function alienGag() { gag(async () => { const a = hero, al = alien.ti.querySelector('.al'); await walkTo(a, 1150); a.dir = 1; await wait(300); SFX.blorp(); await fx(300, p => al.setAttribute('transform', `translate(0 ${110 - 200 * easeOut(p)})`)); say('Blorp!', { pitch: 2, rate: 1.2, beep: false }); SFX.boing(1.8); await jump(a, 300, 900, { dx: -180, spin: -360 }); a.rot = 0; await squash(a); SFX.giggle(1.4); await fx(900, p => al.setAttribute('transform', `translate(0 ${-90 + Math.sin(p * 20) * 8})`)); budsLaugh(); await fx(400, p => al.setAttribute('transform', `translate(0 ${-90 + 200 * p})`)); }); }
+    let walkHop = 0;
+    return { intro: async () => { await say('We\'re on the moon! Everything is floaty!'); task.start(); }, nag: task.nag, again: task.start, tick: () => { for (const b of [hero, ...buds]) if (b.walking) b.hop = Math.abs(Math.sin(T * 0.006)) * 70 * b.s; else if (!busy || b !== hero) b.hop *= .8; } };
+  },
+
+  /* ---------- SEA: big/small fish, clam, bubbles, octopus ---------- */
+  sea() {
+    L.bg.innerHTML = `<rect x="-400" y="0" width="2400" height="900" fill="url(#gSea)"/>${[200, 600, 1000, 1400].map(x => `<path d="M${x},0 L${x + 120},0 L${x + 260},${G} L${x + 60},${G}Z" fill="#fff" opacity=".07"/>`).join('')}
+      <path d="M-400,${G - 10} Q300,${G - 50} 800,${G - 14} T2000,${G - 20} V900 H-400Z" fill="#f2d59b" stroke="${ink}" stroke-width="6"/>
+      ${[[150, '#ff6fb5'], [1440, '#ff8c42'], [1000, '#9b5de5']].map(([x, c]) => `<g transform="translate(${x} ${G})"><path d="M0,0 V-90 M0,-50 l-30,-30 M0,-60 l26,-34 M-30,-80 v-20 M26,-94 v-16" stroke="${c}" stroke-width="16" stroke-linecap="round" fill="none"/></g>`).join('')}
+      ${Array.from({ length: 6 }, (_, i) => `<circle cx="${(i * 271) % 1600}" cy="${G + 40 + (i % 2) * 30}" r="8" fill="#fff" opacity=".6"/>`).join('')}`;
+    const clam = addThing('clam', 300, G, `<path d="M-70,0 Q0,30 70,0 Q60,-20 0,-22 Q-60,-20 -70,0Z" fill="#ff9fd0" stroke="${ink}" stroke-width="6"/><g class="lid" style="transform-box:fill-box;transform-origin:50% 100%;transition:transform .15s"><path d="M-70,-4 Q-60,-80 0,-84 Q60,-80 70,-4 Q0,-24 -70,-4Z" fill="#ffb3d1" stroke="${ink}" stroke-width="6"/><path d="M-40,-20 Q-30,-60 0,-64 M40,-20 Q30,-60 0,-64 M0,-22 V-64" stroke="#ff6fb5" stroke-width="4" fill="none"/></g><circle cx="0" cy="-14" r="13" fill="#fff" stroke="${ink}" stroke-width="4"/>`, clamGag);
+    addThing('vent', 470, G, `<path d="M-40,0 L-20,-40 L20,-40 L40,0Z" fill="#8d6e63" stroke="${ink}" stroke-width="6" stroke-linejoin="round"/><circle cx="0" cy="-60" r="12" fill="#bfeaff" stroke="#fff" stroke-width="3" opacity=".8"/><circle cx="10" cy="-92" r="8" fill="#bfeaff" stroke="#fff" stroke-width="3" opacity=".7"/>`, bubbleGag);
+    addThing('weed', 590, G, `<g class="sway">${[-20, 0, 20].map((x, i) => `<path d="M${x},0 q-20,-50 0,-100 q20,-50 0,-${120 + i * 30}" stroke="#2fbf71" stroke-width="16" fill="none" stroke-linecap="round"/>`).join('')}</g>`, weedGag);
+    const octo = addThing('octo', 1300, G, `<g class="oc">${[-50, -25, 0, 25, 50].map((x, i) => `<path d="M${x},-40 q${i % 2 ? 18 : -18},20 0,40" stroke="#b46ae8" stroke-width="20" fill="none" stroke-linecap="round"/>`).join('')}<ellipse cx="0" cy="-90" rx="70" ry="66" fill="#b46ae8" stroke="${ink}" stroke-width="6"/><circle cx="-22" cy="-96" r="13" fill="#fff" stroke="${ink}" stroke-width="4"/><circle cx="22" cy="-96" r="13" fill="#fff" stroke="${ink}" stroke-width="4"/><circle cx="-19" cy="-94" r="6" fill="${ink}"/><circle cx="25" cy="-94" r="6" fill="${ink}"/><ellipse cx="0" cy="-62" rx="10" ry="8" fill="${ink}"/></g>`, inkGag);
+    const fishX = [760, 920, 1080], SZ = { small: .55, middle: .95, big: 1.55 }, FC = ['#ff8c42', '#ffd23f', '#4cc9f0', '#ff6fb5'];
+    const fishSvg = (s, c) => `<g transform="scale(${s})"><path d="M-50,0 Q0,-44 44,0 Q0,44 -50,0Z" fill="${c}" stroke="${ink}" stroke-width="${6 / s}"/><path d="M40,0 L72,-26 L72,26Z" fill="${c}" stroke="${ink}" stroke-width="${6 / s}" stroke-linejoin="round"/><circle cx="-24" cy="-6" r="8" fill="#fff" stroke="${ink}" stroke-width="3"/><circle cx="-26" cy="-6" r="4" fill="${ink}"/><path d="M-6,-20 q6,20 0,40" stroke="${ink}" stroke-width="3" fill="none" opacity=".4"/></g>`;
+    const task = pickTask({
+      id: 'sea',
+      make: () => { const ks = shuffle(['small', 'middle', 'big']); return { items: ks.map(k => ({ key: k, c: pick(FC), ph: rand(0, 6) })), target: pick(['small', 'big']) }; },
+      drawItems: (items, T) => { Object.keys(things).filter(k => k.startsWith('fish')).forEach(k => { things[k].el.remove(); delete things[k]; }); items.forEach((it, i) => { it.t = addThing('fish' + i, fishX[i], G - 330, fishSvg(SZ[it.key], it.c), () => T.pick(it)); }); fishList = items; },
+      onRight: async (it) => { await swimTo(it, true); },
+      onWrong: async (it) => { await swimTo(it, false); },
+      icon: (k) => `<svg viewBox="-90 -60 180 120">${fishSvg(k === 'big' ? 1.25 : .45, '#ff8c42')}</svg>`,
+      askText: (k) => k === 'big' ? pick(['Which fish is the BIGGEST?', 'Can you find the BIG fish?']) : pick(['Which fish is the smallest?', 'Can you find the teeny tiny fish?']),
+      rightText: (k) => k === 'big' ? 'Yes! That\'s the BIG fish!' : 'Yes! That\'s the little tiny fish!',
+      wrongText: (k, t) => `That fish tickled you! Can you find the ${t === 'big' ? 'BIG' : 'teeny tiny'} fish?`,
+    });
+    let fishList = [];
+    async function swimTo(it, right) {
+      const a = hero, t = it.t; await walkTo(a, t.x - 60); a.dir = 1; SFX.bubble();
+      await jump(a, 0, 700, { toY: 210 });
+      if (right) { SFX.sparkle(); burst(t.x, t.y, { n: 14, kind: 'heart', colors: ['#ff6fb5', '#ff4d6d'], spd: 200, up: 300, size: 12, g: 100 }); await fx(900, p => { a.rot = 360 * p; }); a.rot = 0; }
+      else { SFX.giggle(a.sp.kind === 'robot' ? .7 : 1.2); await fx(1000, p => { a.rot = Math.sin(p * 30) * 14; }); a.rot = 0; }
+      await jump(a, 0, 700, { toY: 0 }); await squash(a, .6);
+    }
+    async function clamGag() { gag(async () => { const a = hero, lid = clam.ti.querySelector('.lid'); await walkTo(a, 300); SFX.snap(); lid.style.transform = 'scaleY(.7)'; say('Ow ow ow!', a.sp.kind === 'robot' ? { pitch: .7, beep: false } : { pitch: 1.9, beep: false }); for (let i = 0; i < 4; i++) { SFX.hic(); await jump(a, 100, 380, { dx: (i % 2 ? -50 : 50), spin: i % 2 ? -20 : 20 }); } lid.style.transform = ''; a.rot = 0; burst(300, G - 30, { n: 10, kind: 'star', colors: ['#fff'], spd: 200, up: 300, size: 10 }); budsLaugh(); }); }
+    async function bubbleGag() { gag(async () => { const a = hero; await walkTo(a, 470); SFX.bubble(); const b = svgEl('circle', { r: 10, fill: '#bfeaff', 'fill-opacity': .3, stroke: '#fff', 'stroke-width': 6 }); await fx(600, p => { b.setAttribute('r', 10 + 170 * a.s * p); b.setAttribute('cx', a.x); b.setAttribute('cy', G - a.y - 140 * a.s); }); await fx(2400, p => { a.y = 420 * easeIO(p); a.x = 470 + Math.sin(p * 9) * 40; b.setAttribute('cx', a.x); b.setAttribute('cy', G - a.y - 140 * a.s); }); SFX.pop(); b.remove(); burst(a.x, G - a.y - 140 * a.s, { n: 20, colors: ['#bfeaff', '#fff'], spd: 300, up: 200, size: 8 }); await jump(a, 0, 600, { toY: 0 }); SFX.thud(); burst(a.x, G, { n: 14, colors: ['#f2d59b'], up: 250, spd: 200 }); await squash(a, 1.3); budsLaugh(); }); }
+    async function weedGag() { gag(async () => { const a = hero; await walkTo(a, 590); wig(things.weed); SFX.giggle(a.sp.kind === 'robot' ? .7 : 1.2); await fx(1600, p => { a.rot = Math.sin(p * 26) * 12; a.hop = Math.abs(Math.sin(p * 13)) * 30; }); a.hop = 0; a.rot = 0; buddySay(a, 'That tickles!'); budsLaugh(); }); }
+    async function inkGag() { gag(async () => { const a = hero; await walkTo(a, 1170); a.dir = 1; wig(octo); SFX.squirt(); for (let i = 0; i < 18; i++) { const e = svgEl('circle', { r: rand(8, 18), fill: '#1a1030' }); parts.push({ e, x: 1250, y: G - 70, vx: rand(-700, -350), vy: rand(-300, -60), g: 200, life: .5, max: .5, rot: 0, vr: 0 }); } await wait(350); setPart(a, 'ink', 1); await fx(700, p => { a.rot = Math.sin(p * 16) * 5; }); a.rot = 0; SFX.giggle(1.8); await wait(1200); await fx(900, p => setPart(a, 'ink', (1 - p).toFixed(2))); budsLaugh(); }); }
+    return { intro: async () => { await say('Under the sea! Blub blub blub!'); task.start(); }, nag: task.nag, again: task.start,
+      tick: () => { fishList.forEach((it, i) => { if (it.t && it.t.el.isConnected && !busy) it.t.el.setAttribute('transform', `translate(${fishX[i] + Math.sin(T * 0.0011 + it.ph) * 30} ${G - 330 + Math.sin(T * 0.002 + it.ph) * 26})`); }); if (Math.random() < .03) { const e = svgEl('circle', { r: rand(4, 10), fill: 'none', stroke: '#fff', 'stroke-width': 3 }); parts.push({ e, x: hero.x + rand(-40, 40), y: headY(hero) + 30, vx: rand(-20, 20), vy: -120, g: -40, life: 2, max: 2, rot: 0, vr: 0 }); } } };
+  },
+};
+
+/* ---------------- input ---------------- */
+svg.addEventListener('pointerdown', (e) => {
+  initAudio(); e.preventDefault();
+  const tEl = e.target.closest('[data-id]'), aEl = e.target.closest('[data-actor]');
+  if (scene === 'map') { if (tEl && things[tEl.dataset.id]) things[tEl.dataset.id].tap(); return; }
+  if (scene === 'lab') { if (aEl && hero && !busy) { lastAct = performance.now(); gag(async () => { SFX.giggle(hero.sp.kind === 'robot' ? .7 : 1.2); await jump(hero, 120, 600, { spin: 360 }); hero.rot = 0; await squash(hero); }); } return; }
+  if (scene !== 'place') return;
+  if (aEl && aEl._a) { heroTap(aEl._a); return; }
+  if (tEl && things[tEl.dataset.id]) { const t = things[tEl.dataset.id]; if (busy) { wig(t); return; } t.tap(); return; }
+  if (busy) return;
+  const p = toSvg(e.clientX, e.clientY); lastAct = performance.now();
+  gag(() => walkTo(hero, p.x));
+});
+
+/* ---------------- start ---------------- */
+$('#startArt').innerHTML = `<g transform="translate(250 360) scale(1.1)">${creature({ kind: 'monster', body: 'heart', color: 'purple', eyes: 3, mouth: 'tongue', top: 'horns', arms: 'arms', feet: 'tentacles', pattern: 'spots' })}</g><g transform="translate(560 360) scale(1.1)">${creature({ kind: 'robot', body: 'square', color: 'teal', eyes: 2, mouth: 'led', top: 'siren', arms: 'claw', feet: 'wheels', pattern: 'panel' })}</g><g transform="translate(410 360) scale(.45)">${creature({ kind: 'robot', body: 'round', color: 'pink', eyes: 1, mouth: 'smile', top: 'antenna', arms: 'tiny', feet: 'spring', pattern: 'none' })}</g>`;
+$('#playBtn').addEventListener('pointerdown', async (e) => {
+  e.preventDefault(); initAudio(); SFX.fanfare();
+  $('#start').hidden = true;
+  if (st.hero) { say(`Welcome back, {n}!`); enterMap(); } else enterLab('hero');
+});
+window.__bm = { creature, get st() { return st; }, get scene() { return scene; }, get things() { return things; }, get busy() { return busy; }, get hero() { return hero; }, get place() { return place; }, enterPlace, enterMap, enterLab, taskDone };
+})();
+</script>

@@ -2,6 +2,7 @@
 # Builds both iPad home-screen apps into docs/ (served by GitHub Pages):
 #   index.html      -> docs/        (Claire's Adventures)
 #   fire/index.html -> docs/fire/   (Fire Drill)
+#   buddies/index.html -> docs/buddies/ (Buddy Maker)
 set -e
 cd "${0:A:h}/.."
 V=$(date +%Y%m%d%H%M%S)
@@ -66,5 +67,6 @@ SW
 }
 build index.html docs "Claire" "#8e44d6"
 build fire/index.html docs/fire "Fire Drill" "#c42a4a"
+build buddies/index.html docs/buddies "Buddy Maker" "#8e44d6"
 touch docs/.nojekyll
-echo "built docs/ and docs/fire/ ($V)"
+echo "built docs/, docs/fire/, docs/buddies/ ($V)"
