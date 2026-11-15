@@ -68,9 +68,9 @@ html, body { height: 100%; margin: 0; overflow: hidden; background: var(--sky); 
 .starfield i { position: absolute; width: 6px; height: 6px; background: var(--paper); border-radius: 50%; opacity: .8; animation: twinkle 2s ease-in-out infinite; }
 @keyframes twinkle { 50% { opacity: .15; transform: scale(.5); } }
 
-#picker { background: rgba(58,26,92,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.cards { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; max-width: 900px; }
-.card { width: min(300px, 70vw); aspect-ratio: 1; max-width: 100%; border-radius: 36px; border: 8px solid var(--paper); background: var(--lilac);
+#picker { overflow-y: auto; align-items: start; padding-block: 28px; background: rgba(58,26,92,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.cards { display: flex; flex-wrap: wrap; gap: 22px; justify-content: center; max-width: 1180px; }
+.card { width: min(190px, 40vw); aspect-ratio: 1; max-width: 100%; border-radius: 36px; border: 8px solid var(--paper); background: var(--lilac);
   box-shadow: 0 10px 0 var(--plum); padding: 0; cursor: pointer; overflow: hidden; transform: rotate(-2deg); transition: transform .15s; position: relative; }
 .card:nth-child(2n) { transform: rotate(2deg); }
 .card:active { transform: scale(.94); }
@@ -756,6 +756,7 @@ function updateClaire(dt, t) {
   T(C.body, 0, y);
   let aL = -sw * 0.7 + 8, aR = sw * 0.7 - 8;
   if (c.carry || c.poseT > 0) { aL = 150; aR = -150; }
+  else if (c.crawl) { aL = 70 + Math.sin(c.phase) * 15; aR = -70 + Math.sin(c.phase) * 15; }
   else if (c.danceT > 0) { aL = 130 + Math.sin(t * 12) * 30; aR = -130 + Math.cos(t * 12) * 30; }
   else if (c.waveT > 0) { aR = -150 + Math.sin(t * 14) * 25; }
   else if (c.clapT > 0) { aL = 75 + Math.sin(t * 28) * 18; aR = -75 - Math.sin(t * 28) * 18; }
@@ -769,7 +770,7 @@ function updateClaire(dt, t) {
   let spin = 1; if (c.spinT > 0) { c.spinT -= dt; spin = Math.cos(c.spinT * 20); }
   T(C.flip, 0, 0, (c.danceT > 0 ? Math.sin(t * 12) * 5 : 0) + (c.wobT > 0 ? Math.sin(t * 30) * 7 : 0), c.dir * spin, 1);
   const s = depth(c.y); let roll = 0, rollY = 0; if (c.rollT > 0) { c.rollT -= dt; const k = 1 - Math.max(0, c.rollT) / 0.9; roll = k * 360 * c.dir; rollY = -Math.sin(k * Math.PI) * 70; }
-  C.root.setAttribute('transform', `translate(${c.x} ${c.y - c.lift + rollY}) scale(${s}) rotate(${roll} 0 -170)`);
+  C.root.setAttribute('transform', `translate(${c.x} ${c.y - c.lift + rollY}) scale(${s} ${c.crawl ? s * 0.74 : s}) rotate(${roll} 0 -170)`);
 }
 
 /* ---------------- Beep ---------------- */
@@ -1353,7 +1354,7 @@ const story = {
     setHint(null);
   },
   async start() {
-    this.reset(); const tok = ++this.token;
+    Q.end(); this.reset(); const tok = ++this.token;
     await say('Hi {n}! It is me, Beep! Shhh. Listen.');
     if (tok !== this.token) return;
     detector.chirpOn = true; detector.next = 0;
@@ -1417,9 +1418,331 @@ const story = {
   },
 };
 
+/* ---------------- missions (Beep explains each step; a star shows where to tap) ---------------- */
+const ART = {
+  vac: `<ellipse class="o" fill="#5a5a72" cx="0" cy="-16" rx="56" ry="20"/><ellipse class="o" fill="#8d88c8" cx="0" cy="-28" rx="52" ry="17"/><g class="vacEyes"><circle cx="-15" cy="-30" r="5.5" fill="#7ff3ff"/><circle cx="15" cy="-30" r="5.5" fill="#7ff3ff"/></g><path d="M-8,-22 q8,6 16,0" stroke="#7ff3ff" stroke-width="3" fill="none" stroke-linecap="round"/><circle class="vacLed" cx="32" cy="-32" r="4.5" fill="#ff3355"/>`,
+  flash: `<circle class="glowc" cx="0" cy="-72" r="40" fill="url(#gGlow)"/><rect class="o" fill="#ffd23f" x="-12" y="-58" width="24" height="56" rx="6"/><path class="o" fill="#ffd23f" d="M-20,-58 h40 l-6,-18 h-28 z"/><ellipse cx="0" cy="-76" rx="13" ry="4" fill="#fffbe0"/><rect fill="#8e44d6" x="-5" y="-40" width="10" height="14" rx="3"/>`,
+  breaker: `<rect class="o" fill="#d9d4ea" x="-42" y="-110" width="84" height="110" rx="8"/><rect fill="#3a2a4a" x="-26" y="-92" width="52" height="66" rx="4"/><rect class="brkSw o t" fill="#ff4d6d" x="-9" y="-86" width="18" height="24" rx="3"/><path d="M-6,-18 l-6,10 h8 l-4,10" stroke="#ffd23f" stroke-width="4" fill="none"/>`,
+  door: `<rect fill="url(#gSky)" x="-64" y="-404" width="128" height="404"/><rect fill="#9ed49a" x="-64" y="-120" width="128" height="120"/><circle cx="30" cy="-330" r="20" fill="#ffd23f"/>
+    <g class="doorPanel"><rect class="o" fill="#c99a6c" x="-70" y="-410" width="140" height="410" rx="6"/><rect class="o t" fill="none" x="-52" y="-386" width="104" height="160" rx="6"/><rect class="o t" fill="none" x="-52" y="-200" width="104" height="170" rx="6"/><circle class="o t" cx="48" cy="-200" r="9" fill="#ffd23f"/>
+    <rect class="hotGlow" x="-70" y="-410" width="140" height="410" rx="6" fill="#ff4060" opacity="0"/></g>`,
+  ff: `<g><path d="M-80,0 L-60,-240 M80,0 L60,-240" stroke="${ink}" stroke-width="12" stroke-linecap="round"/><path d="M-80,0 L-60,-240 M80,0 L60,-240" stroke="#ffd23f" stroke-width="6" stroke-linecap="round"/>
+    ${[30, 75, 120, 165, 210].map((y) => `<path d="M${-78 + y / 12},${-y} H${78 - y / 12}" stroke="${ink}" stroke-width="10" stroke-linecap="round"/><path d="M${-78 + y / 12},${-y} H${78 - y / 12}" stroke="#ffd23f" stroke-width="5" stroke-linecap="round"/>`).join('')}</g>
+    <rect class="o" fill="#d2ccf4" x="-42" y="-130" width="84" height="80" rx="20"/><rect class="o" fill="#beb2f4" x="-40" y="-196" width="80" height="64" rx="18"/><rect fill="#24103d" x="-30" y="-188" width="60" height="44" rx="10"/>
+    <circle cx="-12" cy="-168" r="6" fill="#7ff3ff"/><circle cx="12" cy="-168" r="6" fill="#7ff3ff"/><path d="M-10,-156 q10,8 20,0" stroke="#7ff3ff" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path class="o" fill="#ff3b4f" d="M-50,-190 Q-46,-236 0,-238 Q46,-236 50,-190 Z"/><rect class="o t" fill="#ff3b4f" x="-58" y="-194" width="116" height="12" rx="6"/><path d="M0,-232 l6,12 l13,1 l-10,9 l3,13 l-12,-7 l-12,7 l3,-13 l-10,-9 l13,-1 z" fill="#ffd23f"/>
+    <g class="ffArm"><rect class="o" fill="#4b3a7a" x="38" y="-170" width="14" height="50" rx="7"/><circle class="o" fill="#ffd23f" cx="45" cy="-174" r="11"/></g>
+    <circle class="ffL1" cx="-30" cy="-226" r="6" fill="#ff3355"/><circle class="ffL2" cx="30" cy="-226" r="6" fill="#4d7bff"/>`,
+  spring: `<path d="M-20,-6 L20,-14 L-20,-22 L20,-30 L-20,-38 L20,-46 L-20,-54" stroke="${ink}" stroke-width="10" fill="none" stroke-linejoin="round" stroke-linecap="round"/><path d="M-20,-6 L20,-14 L-20,-22 L20,-30 L-20,-38 L20,-46 L-20,-54" stroke="#c9c9d9" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>`,
+  screw: `<rect class="o" fill="#c9c9d9" x="-7" y="-50" width="14" height="44" rx="3"/><path d="M-7,-40 l14,-6 M-7,-28 l14,-6 M-7,-16 l14,-6" stroke="${ink}" stroke-width="3"/><rect class="o" fill="#e0e0f0" x="-18" y="-62" width="36" height="14" rx="5"/><path d="M-8,-55 h16" stroke="${ink}" stroke-width="3"/>`,
+  bolt: `<path class="o" fill="#c9c9d9" d="M-22,-40 l11,-19 h22 l11,19 l-11,19 h-22 z"/><circle class="o t" cx="0" cy="-40" r="9" fill="#9a9aaa"/>`,
+  fin: `<path class="o" fill="#ff5a6e" d="M-20,0 L-20,-60 L24,-20 L24,0 Z"/>`,
+  fuel: `<rect class="o" fill="#7dffa6" x="-26" y="-64" width="52" height="64" rx="10"/><rect class="o t" fill="#4b3a7a" x="-8" y="-76" width="16" height="14" rx="3"/><path d="M-10,-40 l10,-14 l10,14 a10,10 0 0 1 -20,0 z" fill="#ffd23f" class="o t"/>`,
+  card: `<rect class="o" fill="#fff" x="-34" y="-80" width="68" height="80" rx="6"/><path d="M-20,-30 a20,20 0 0 1 40,0" stroke="#ff6fb5" stroke-width="6" fill="none"/><circle cx="0" cy="-56" r="9" fill="#ffd23f"/><path d="M-16,-12 h32" stroke="#9b7cf0" stroke-width="5" stroke-linecap="round"/>`,
+  cake: `<rect class="o" fill="#fff0f6" x="-50" y="-60" width="100" height="56" rx="10"/><path class="o t" fill="#ff8fc6" d="M-50,-46 q12,14 25,0 q12,14 25,0 q12,14 25,0 q12,14 25,0 v-14 h-100 z"/><circle cx="-26" cy="-30" r="5" fill="#ffd23f"/><circle cx="0" cy="-22" r="5" fill="#7fe0ff"/><circle cx="26" cy="-30" r="5" fill="#7dffa6"/>
+    ${[-24, 0, 24].map((x) => `<rect class="o t" fill="${x ? '#9fb3ff' : '#ff6fb5'}" x="${x - 4}" y="-88" width="8" height="28" rx="3"/><g class="flame"><path fill="#ffd23f" class="o t" d="M${x},-110 q10,12 0,20 q-10,-8 0,-20 z"/></g>`).join('')}<rect class="o" fill="#ffd9a8" x="-62" y="-6" width="124" height="10" rx="5"/>`,
+  balloon: (c) => `<path d="M0,0 q10,-40 0,-80" stroke="${ink}" stroke-width="3" fill="none"/><ellipse class="o" fill="${c}" cx="0" cy="-118" rx="32" ry="40"/><path d="M-12,-136 q6,-12 18,-12" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" opacity=".7"/><path class="o t" fill="${c}" d="M-6,-78 h12 l-6,-8 z"/>`,
+  box: `<g class="boxBody"><rect class="o" fill="#d9a774" x="-70" y="-100" width="140" height="100" rx="6"/><path d="M-70,-60 h140" stroke="#c48b58" stroke-width="5"/><rect fill="#f7e6c4" x="-14" y="-100" width="28" height="100"/><path d="M-30,-40 l10,-10 M30,-40 l-10,-10" stroke="${ink}" stroke-width="3"/><text x="0" y="-18" text-anchor="middle" font-size="20" font-weight="800" fill="#8a5a30" font-family="Baloo 2, sans-serif">?</text></g>
+    <g class="boxLid"><path class="o" fill="#e3b583" d="M-78,-100 h156 v-20 h-156 z"/><rect fill="#f7e6c4" x="-14" y="-120" width="28" height="20"/></g>`,
+  pet: `<ellipse cx="0" cy="0" rx="34" ry="8" fill="#3a1a30" opacity=".15"/><circle class="o" cx="0" cy="-16" r="14" fill="#4b3a7a"/><circle class="o" fill="#fff" cx="0" cy="-58" r="40"/><circle cx="-14" cy="-62" r="10" fill="#24103d"/><circle cx="14" cy="-62" r="10" fill="#24103d"/><circle cx="-11" cy="-65" r="4" fill="#7ff3ff"/><circle cx="17" cy="-65" r="4" fill="#7ff3ff"/><path d="M-10,-42 q10,8 20,0" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M0,-98 v-16" stroke="${ink}" stroke-width="4"/><circle class="o t" cx="0" cy="-118" r="8" fill="#ff6fb5"/><circle cx="-28" cy="-48" r="7" fill="#ff9ec7" opacity=".7"/><circle cx="28" cy="-48" r="7" fill="#ff9ec7" opacity=".7"/>`,
+  camera: `<rect class="o" fill="#3b3b4b" x="-32" y="-46" width="64" height="44" rx="10"/><circle class="o t" cx="0" cy="-24" r="14" fill="#6fd0ff"/><rect class="o t" fill="#e0e0f0" x="14" y="-54" width="14" height="9" rx="3"/>`,
+  blipMini: `<path d="M0,-82 q8,-16 -4,-26" stroke="${ink}" stroke-width="4" fill="none"/><circle class="o t" cx="-5" cy="-110" r="7" fill="#ff6fb5"/><path class="o" fill="#8fe388" d="M-34,0 C-42,-40 -28,-80 0,-80 C28,-80 42,-40 34,0 Q0,8 -34,0 Z"/><circle class="o t" cx="0" cy="-48" r="17" fill="#fff"/><circle cx="2" cy="-46" r="8" fill="#2b1a40"/><circle cx="-2" cy="-50" r="3" fill="#fff"/><path d="M-10,-20 q10,8 20,0" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+  blipPeek: `<path d="M0,-58 q8,-16 -4,-26" stroke="${ink}" stroke-width="4" fill="none"/><circle class="o t" cx="-5" cy="-86" r="7" fill="#ff6fb5"/><path class="o" fill="#8fe388" d="M-38,0 C-38,-36 -22,-58 0,-58 C22,-58 38,-36 38,0 Z"/><circle class="o t" cx="0" cy="-26" r="16" fill="#fff"/><circle cx="2" cy="-24" r="8" fill="#2b1a40"/>`,
+  zuzuPeek: `<path class="o" fill="#ffa6d8" d="M-50,0 C-50,-40 -26,-56 0,-56 C26,-56 50,-40 50,0 Z"/><g transform="translate(-22 -28)"><circle class="o t" r="10" fill="#fff"/><circle cx="1" cy="1" r="5" fill="#2b1a40"/></g><g transform="translate(0 -36)"><circle class="o t" r="10" fill="#fff"/><circle cx="1" cy="1" r="5" fill="#2b1a40"/></g><g transform="translate(22 -28)"><circle class="o t" r="10" fill="#fff"/><circle cx="1" cy="1" r="5" fill="#2b1a40"/></g>`,
+  gloopPeek: `<path d="M-14,0 L-28,-50 M14,0 L28,-50" stroke="${ink}" stroke-width="10" stroke-linecap="round"/><path d="M-14,0 L-28,-50 M14,0 L28,-50" stroke="#7fc8ff" stroke-width="5" stroke-linecap="round"/><circle class="o t" cx="-28" cy="-58" r="15" fill="#fff"/><circle cx="-26" cy="-56" r="7" fill="#2b1a40"/><circle class="o t" cx="28" cy="-58" r="15" fill="#fff"/><circle cx="30" cy="-56" r="7" fill="#2b1a40"/>`,
+  blanket: `<path class="o" fill="#ff9ee0" d="M-150,0 Q-160,-70 -110,-80 Q0,-60 110,-80 Q160,-70 150,0 Q0,30 -150,0 Z"/><path d="M-120,-40 h240 M-130,-12 h260" stroke="#fff" stroke-width="5" stroke-dasharray="12 10" opacity=".8"/><circle cx="-60" cy="-26" r="7" fill="#ffd23f"/><circle cx="40" cy="-30" r="7" fill="#7fe0ff"/><circle cx="90" cy="-14" r="6" fill="#fff"/>`,
+};
+ITEM.flash = ART.flash; ITEM.card = ART.card; ITEM.cake = ART.cake; ITEM.camera = ART.camera;
+const sticker64 = (art, s = 0.5, dy = 50) => `<g transform="translate(32 ${dy}) scale(${s})">${art}</g>`;
+Object.assign(STICKERS, {
+  vacuum: ['Robot vacuum', sticker64(ART.vac, 0.48, 46)],
+  firefighter: ['Fire safety hero', sticker64(ART.ff, 0.22, 60)],
+  flashlight: ['Flashlight', sticker64(ART.flash, 0.55, 56)],
+  sneaky: ['Sneaky Blip', sticker64(ART.blipMini, 0.5, 58)],
+  fixbeep: ['Robot fixer', sticker64(ART.spring, 0.8, 52) + sticker64(ART.screw, 0.6, 52).replace('translate(32', 'translate(46')],
+  hideseek: ['Hide and seek', sticker64(ART.zuzuPeek, 0.55, 48)],
+  cake: ['Birthday cake', sticker64(ART.cake, 0.42, 54)],
+  storm: ['Sticker storm', '<path d="M22 14l5 10 11 2-8 8 2 11-10-6-10 6 2-11-8-8 11-2z" fill="#ff6fb5"/><path d="M44 30l4 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1z" fill="#ffd23f"/><circle cx="24" cy="48" r="7" fill="#5fd3ff"/>'],
+  rocketfix: ['Rocket fixer', sticker64(ART.bolt, 0.7, 50).replace('translate(32', 'translate(20') + sticker64(ART.fuel, 0.5, 56).replace('translate(32', 'translate(44')],
+  sleepy: ['Sleepy planet', sticker64(ART.blanket, 0.18, 46) + '<circle cx="32" cy="30" r="13" fill="#ffb08a"/><path d="M26 28q3 2 6 0M34 28q3 2 6 0" stroke="#3a1a5c" stroke-width="2" fill="none"/>'],
+  photohunt: ['Photo hunter', sticker64(ART.camera, 0.7, 48)],
+  pet: ['Pip the robot', sticker64(ART.pet, 0.42, 56)],
+});
+
+const qLayer = svgEl('g', { id: 'qLayer' }, el('worldG')); el('worldG').insertBefore(qLayer, chars);
+world.querySelector('defs').insertAdjacentHTML('beforeend', `<radialGradient id="gDark" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="260"><stop offset="0" stop-color="#0a0520" stop-opacity="0"/><stop offset=".55" stop-color="#0a0520" stop-opacity=".1"/><stop offset="1" stop-color="#0a0520" stop-opacity=".9"/></radialGradient>`);
+const darkRect = svgEl('rect', { x: -1000, y: -1600, width: 10000, height: 3200, fill: 'url(#gDark)', visibility: 'hidden', 'pointer-events': 'none' });
+fx.insertBefore(darkRect, fx.firstChild);
+const smokeG = svgEl('g', { visibility: 'hidden', 'pointer-events': 'none' });
+fx.insertBefore(smokeG, darkRect.nextSibling);
+for (let i = 0; i < 70; i++) svgEl('ellipse', { cx: i * 72 + rand(-20, 20), cy: rand(40, 190), rx: rand(60, 110), ry: rand(30, 50), fill: pick(['#8b8498', '#9d97a8', '#7d7688']), opacity: 0.55 }, smokeG);
+const spawnArt = (art, x, y, parent = fx) => { const g = svgEl('g', {}, parent, art); T(g, x, y); return g; };
+function snapView() {
+  SFX.shutter(); const flash = $('#flash'); flash.classList.add('on'); requestAnimationFrame(() => flash.classList.remove('on'));
+  const vb = world.getAttribute('viewBox').split(' ').map(Number), w = 800, h = Math.round(800 * vb[3] / vb[2]);
+  const clone = world.cloneNode(true); clone.setAttribute('width', w); clone.setAttribute('height', h); clone.removeAttribute('preserveAspectRatio');
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' }));
+  const img = new Image();
+  img.onload = () => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url); let d = ''; try { d = cv.toDataURL('image/jpeg', 0.85); } catch {} if (d) { photos.push(d); if (photos.length > 12) photos.shift(); updateBookCount(); } };
+  img.onerror = () => URL.revokeObjectURL(url); img.src = url;
+}
+const dingdong = () => { tone(N(76), 0.6, { vol: 0.2 }); tone(N(72), 0.9, { vol: 0.2, at: 0.45 }); };
+const slurp = () => noise(0.5, { freq: 400, f2: 2500, vol: 0.18 });
+const siren = () => { for (let i = 0; i < 4; i++) { tone(700, 0.4, { f2: 1000, type: 'triangle', vol: 0.07, at: i * 0.8 }); tone(1000, 0.4, { f2: 700, type: 'triangle', vol: 0.07, at: i * 0.8 + 0.4 }); } };
+const HBD = [[67, 0.75], [67, 0.25], [69, 1], [67, 1], [72, 1], [71, 2], [67, 0.75], [67, 0.25], [69, 1], [67, 1], [74, 1], [72, 2], [67, 0.75], [67, 0.25], [79, 1], [76, 1], [72, 1], [71, 1], [69, 2], [77, 0.75], [77, 0.25], [76, 1], [72, 1], [74, 1], [72, 2]];
+const TWINKLE = [[60, 1], [60, 1], [67, 1], [67, 1], [69, 1], [69, 1], [67, 2], [65, 1], [65, 1], [64, 1], [64, 1], [62, 1], [62, 1], [60, 2]];
+let pet = null, petOn = false; try { petOn = localStorage.getItem('claire-pet') === '1'; } catch {}
+let vacRoam = null;
+
+const Q = {
+  m: null, i: 0, idle: 0, busy: false, props: [], token: 0, got: new Set(), alarmOn: false, alarmT: 0, dark: false, flash: false, glitch: false,
+  start(m) {
+    this.end(); story.token++; story.step = 'off'; detector.chirpOn = false; setHint(null);
+    this.m = m; this.i = 0; this.idle = 0; this.busy = false; const tok = ++this.token;
+    setScene(m.scene || 'home'); claire.path = []; claire.locked = false; claire.lift = 0; claire.carry = false; beep.lift = 0; claire.crawl = false;
+    claire.x = m.at; claire.y = 760; beep.x = m.at - 170; beep.y = 810; claire.dir = 1;
+    const vw = Math.max(1250, 900 * innerWidth / innerHeight), [lo, hi] = camBounds(); camX = clamp(claire.x - vw / 2, lo, hi - vw);
+    m.steps.forEach((s) => { s._c = 0; });
+    m.setup?.();
+    after(0.4, () => { if (tok === this.token) this.enter(); });
+  },
+  step() { return this.m && this.m.steps[this.i]; },
+  enter() { const s = this.step(); if (!s) return this.win(); this.got = new Set(); s.enter?.(); this.hint(); if (s.say) say(s.say, s.voice || {}); },
+  hint() { const s = this.step(); if (!s) return setHint(null); if (s.collect) return this.hintNext(s); const h = typeof s.hint === 'function' ? s.hint() : s.hint; setHint(h ? { hint: h } : null); },
+  hintNext(s) { const left = s.collect.find((c) => !this.got.has(c[0])); setHint(left ? { hint: left[1] } : null); },
+  targets(s) { return s.collect ? s.collect.map((c) => c[0]) : [].concat(s.tap || []); },
+  handle(id) {
+    const s = this.step(); if (!s || this.busy || !this.targets(s).includes(id)) return false;
+    this.idle = 0;
+    if (s.collect) {
+      if (this.got.has(id)) return true; this.got.add(id); const n = this.got.size, total = s.collect.length;
+      SFX.sparkle(); s.each?.(id, n);
+      const p = things[id]; if (p && p.node && p.node.parentNode === qLayer) { const node = p.node; tween(0.5, (q) => { node.setAttribute('opacity', 1 - q); }, () => { node.remove(); delete things[id]; }); }
+      if (n >= total) { if (s.allLine) say(s.allLine); this.next(s.delay ?? 2.2); }
+      else { say(s.countLine ? s.countLine(n, total) : `${['One', 'Two', 'Three', 'Four', 'Five'][n - 1]}! ${total - n} more to find!`); this.hintNext(s); }
+      return true;
+    }
+    s._c = (s._c || 0) + 1;
+    if (s._c < (s.times || 1)) { s.partial?.(s._c); return true; }
+    s._c = 0; s.done?.(id); this.next(s.delay ?? 2.2); return true;
+  },
+  next(d) { this.busy = true; setHint(null); const tok = this.token; after(d, () => { if (tok !== this.token) return; this.busy = false; this.i++; this.idle = 0; this.enter(); }); },
+  win() {
+    const m = this.m; finished.add(m.id); store('claire-adv-done', [...finished]); setHint(null);
+    SFX.fanfare(); burst(claire.x, claire.y - 300, 90, 900); claire.spinT = 0.6; hop(3, 80); beep.danceT = 4; setFace('love', 4); after(1.4, SFX.happySong);
+    if (m.sticker) giveSticker(m.sticker, null);
+    m.won?.(); this.last = m; this.m = null;
+    say(m.win).then(() => { if (this.last === m && !this.m) { say('Now you can play with anything you want. Tap, tap, tap!'); $('#homeBtn').classList.add('pulse'); } });
+  },
+  end() {
+    const m = this.m || this.last; this.token++; this.busy = false; this.m = null; this.last = null;
+    if (m) m.cleanup?.();
+    this.props.forEach((p) => { delete things[p.dataset.thing]; p.remove(); }); this.props = [];
+    this.alarmOn = false; this.dark = false; this.flash = false; this.glitch = false; vacRoam = null;
+    darkRect.setAttribute('visibility', 'hidden'); smokeG.setAttribute('visibility', 'hidden'); claire.crawl = false; sec.focus = null; ufo.dark = false;
+    for (let i = stuck.length - 1; i >= 0; i--) if (stuck[i].who === 'claireCarry') { stuck[i].node.remove(); stuck.splice(i, 1); }
+    claire.carry = false; setHint(null);
+  },
+  prop(id, x, y, art, { hit: [w, h] = [150, 170], tap, approach = true } = {}) {
+    const g = svgEl('g', { 'data-thing': id, transform: `translate(${x} ${y})` }, qLayer, `<g class="a">${art}<rect class="hit" x="${-w / 2}" y="${-h}" width="${w}" height="${h}"/></g>`);
+    things[id] = { id, taps: 0, node: g, approach: approach ? [x, 760] : null, tap: tap || (() => { const a = g.firstChild; tween(0.4, (q) => T(a, 0, -Math.sin(q * Math.PI) * 20)); SFX.pop(); }) };
+    this.props.push(g); return g;
+  },
+  drop(id) { const i = this.props.findIndex((p) => p.dataset.thing === id); if (i >= 0) { this.props[i].remove(); this.props.splice(i, 1); } delete things[id]; },
+  carry(art) { const n = spawnArt(art, claire.x, claire.y - 400); stickTo(n, 'claireCarry', 0, 1e9); claire.carry = true; return n; },
+  unCarry() { for (let i = stuck.length - 1; i >= 0; i--) if (stuck[i].who === 'claireCarry') { stuck[i].node.remove(); stuck.splice(i, 1); } claire.carry = false; },
+  update(dt, t) {
+    if (this.dark) { const p = claireHeadPos(), g = el('gDark'); g.setAttribute('cx', p.x); g.setAttribute('cy', p.y + 60); g.setAttribute('r', this.flash ? 520 : 240); }
+    if (this.alarmOn) { this.alarmT -= dt; alarm.ring = 1; if (this.alarmT <= 0) { this.alarmT = 1.8; SFX.bell(1.0); } }
+    if (smokeG.getAttribute('visibility') === 'visible') smokeG.setAttribute('transform', `translate(${Math.sin(t * 0.4) * 50} ${Math.sin(t * 0.7) * 8})`);
+    if (this.glitch && Math.random() < dt * 2) { setFace(pick(['dizzy', 'silly', 'wow']), 0.6); beep.shakeT = 0.25; if (Math.random() < 0.3) SFX.zap(); }
+    if (ufo.dark) document.querySelectorAll('.ufoL').forEach((l) => l.setAttribute('fill', '#77738c'));
+    if (vacRoam) { vacRoam.t += dt; const x = BX + 760 + Math.sin(vacRoam.t * 0.5) * 520; vacRoam.node.setAttribute('transform', `translate(${x} 860)`); }
+    if (pet) { const tx = claire.x + claire.dir * 150, ty = claire.y + 40; pet.x += (tx - pet.x) * Math.min(1, dt * 3); pet.y += (ty - pet.y) * Math.min(1, dt * 3); const s = depth(pet.y) * 0.8; pet.node.setAttribute('transform', `translate(${pet.x} ${pet.y - Math.abs(Math.sin(t * 6)) * 8}) scale(${s})`); }
+    if (this.vacBeep) { this.vbT = (this.vbT || 0) - dt; if (this.vbT <= 0) { this.vbT = 1.6; tone(1800, 0.08, { vol: 0.08 }); tone(1800, 0.08, { vol: 0.08, at: 0.16 }); } }
+    if (this.rocketBroken && Math.random() < dt * 2.5) { const c = svgEl('circle', { r: rand(12, 22), fill: '#9d97a8', opacity: 0.7 }); confetti.push({ el: c, x: SX + 2380 + rand(-20, 20), y: 520, vx: rand(-40, 40), vy: -rand(60, 120), rot: 0, vr: 0, life: 1.6, floor: -9999, g: -20 }); }
+    const s = this.step(); if (!s || this.busy) return;
+    this.idle += dt; if (this.idle > 15) { this.idle = 0; say(s.nag || s.say, s.voice || {}); this.hint(); }
+  },
+};
+function makePet() {
+  if (pet) return;
+  const node = svgEl('g', { 'data-thing': 'pip' }, chars, ART.pet + '<rect class="hit" x="-50" y="-130" width="100" height="140"/>');
+  pet = { node, x: claire.x + 150, y: claire.y + 40 };
+  things.pip = { id: 'pip', taps: 0, node, approach: null, tap(d) { const k = d.taps % 3; melody([[84, 1], [88, 1], [91, 1]], { bpm: 420, type: 'square', vol: 0.05 }); burst(pet.x, pet.y - 100, 12, 300); if (k === 0) say('Pip says beep beep! Pip loves you!'); if (k === 1) gib('Bip bip!', 2, 1.4); if (k === 2) say('Pip is doing a happy dance!'); } };
+}
+if (petOn) after(0.1, makePet);
+
+const MISSIONS = [
+  { id: 'vacuum', sticker: 'vacuum', at: LX + 700, bg: '#ffe2b8', art: ART.vac, artS: 2.6, artY: 200,
+    setup() { Q.prop('q_vac', BX + 1330, 642, ART.vac, { hit: [150, 80], approach: false }); },
+    steps: [
+      { say: "Uh oh! The new robot vacuum ran away, and it is gobbling up everything! Let's follow its trail!", nag: 'Look for the things the vacuum dropped!',
+        enter() { Q.prop('q_t1', LX + 1080, 820, `<g transform="translate(0 -22)">${ITEM.sock}</g>`, { hit: [120, 120] }); Q.prop('q_t2', KX + 640, 830, `<g transform="translate(0 -30)">${ITEM.toast}</g>`, { hit: [120, 120] }); Q.prop('q_t3', BX + 560, 840, `<g transform="translate(-32 -64)">${stickerInner('crafts')}</g>`, { hit: [120, 120] }); },
+        collect: [['q_t1', [LX + 1080, 690]], ['q_t2', [KX + 640, 700]], ['q_t3', [BX + 560, 700]]],
+        each() { slurp(); }, countLine: (n) => ['', 'A sock! The vacuum went this way! Follow the trail!', 'Toast crumbs! It went to your room!'][n], allLine: 'One of your stickers! Shh. Listen. I hear beeping under the bed!' },
+      { say: 'The vacuum is stuck under your bed! Tap the bed!', tap: ['bed', 'q_vac'], hint: [BX + 1330, 520],
+        enter() { Q.vacBeep = true; },
+        done() { Q.vacBeep = false; SFX.whoosh(); const n = things.q_vac.node; tween(1.2, (q) => n.setAttribute('transform', `translate(${BX + 1330 - q * 330} ${642 + q * 180}) rotate(${q * 720})`), () => n.setAttribute('transform', `translate(${BX + 1000} 822)`)); things.q_vac.approach = [BX + 900, 760]; say('Vroom! You got it out!'); } },
+      { say: 'Its tummy is too full! Tap the vacuum to empty it!', tap: 'q_vac', hint: [BX + 1000, 680],
+        done() { slurp(); const items = [ITEM.sock, ITEM.toast, ITEM.chicken, ITEM.spoon, `<g transform="translate(-32 -32)">${stickerInner('bear')}</g>`];
+          items.forEach((art, i) => { const g = spawnArt(art, BX + 1000, 790); const dx = (i - 2) * 140; tween(1.4, (q) => { T(g, BX + 1000 + dx * q, 790 - Math.sin(q * Math.PI) * 280, q * 540); g.setAttribute('opacity', q > 0.85 ? (1 - q) / 0.15 : 1); }, () => g.remove()); });
+          burst(BX + 1000, 760, 50, 700); claireLaugh(2); say('Bleh! A sock, toast, a rubber chicken, and a spoon! Silly vacuum!'); } },
+    ],
+    win: 'You rescued the robot vacuum, {n}! It says thank you! Vroom vroom!',
+    won() { const n = things.q_vac.node; vacRoam = { node: n, t: 0 }; things.q_vac.tap = () => { slurp(); say(pick(['Vroom vroom!', 'The vacuum says thank you!', 'Slurp!'])); }; } },
+
+  { id: 'fire', sticker: 'firefighter', at: KX + 520, bg: '#ffd6cc', art: ART.ff, artS: 0.95, artY: 250,
+    setup() { Q.prop('q_door', KX + 100, 640, ART.door, { hit: [150, 420] }); Q.prop('q_kwin', KX + 720, 380, '', { hit: [320, 240] }); },
+    steps: [
+      { say: 'Beep beep beep! The fire alarm! This is a fire drill. When there is smoke, we get down low under it. Tap {n} to get down low!', nag: 'Tap {n} to get down low!', tap: 'claire', hint: () => { const p = claireHeadPos(); return [p.x, p.y - 140]; },
+        enter() { Q.alarmOn = true; Q.alarmT = 0; smokeG.setAttribute('visibility', 'visible'); setFace('wow', 3); beep.panicT = 1.5; },
+        done() { claire.crawl = true; say('Great job! Low and slow, under the smoke.'); } },
+      { say: 'Now go to the door. Touch it first. Is it hot?', nag: 'Tap the door to feel if it is hot!', tap: 'q_door', hint: [KX + 100, 190],
+        done() { const g = things.q_door.node.querySelector('.hotGlow'); tween(0.6, (q) => g.setAttribute('opacity', q * 0.45)); noise(1, { freq: 4000, vol: 0.08 }); say('Ouch! The door is hot! That means do not open it. Let us go to the window and call for help!'); } },
+      { say: 'Tap the window and wave for help!', tap: 'q_kwin', hint: [KX + 720, 140],
+        done() { claire.waveT = 3; say('Help! Help! We are in here!', { pitch: 1.3 }); siren(); after(1.4, () => {
+          const f = Q.prop('q_ff', KX + 720, 372, ART.ff, { hit: [200, 260], approach: false }); const a = f.firstChild; tween(0.9, (q) => T(a, 0, (1 - easeOut(q)) * 260)); }); } },
+      { say: 'A firefighter robot came with a ladder! Tap the firefighter!', tap: 'q_ff', hint: [KX + 720, 100],
+        done() { say("I've got you! Firefighters are helpers. Let's go outside!", { pitch: 1.0, rate: 0.95 }); after(2.6, () => { warpEl.classList.add('on'); after(0.6, () => { Q.alarmOn = false; smokeG.setAttribute('visibility', 'hidden'); claire.crawl = false; Q.drop('q_ff'); const g = things.q_door?.node.querySelector('.hotGlow'); if (g) g.setAttribute('opacity', 0); warpEl.classList.remove('on'); }); }); }, delay: 3.6 },
+    ],
+    win: 'You did it, {n}! You got low, you checked the door, and you called for help. You are a fire safety hero!',
+    cleanup() { Q.alarmOn = false; } },
+
+  { id: 'lights', sticker: 'flashlight', at: LX + 700, bg: '#2a1a50', art: ART.flash, artS: 2.4, artY: 230,
+    setup() { Q.dark = true; darkRect.setAttribute('visibility', 'visible'); Q.prop('q_flash', LX + 1240, 528, ART.flash, { hit: [110, 130] }); Q.prop('q_brk', KX + 110, 470, ART.breaker, { hit: [130, 150] }); Q.flashGlow = spawnArt(`<circle r="70" fill="url(#gGlow)"/>`, LX + 1240, 456); },
+    steps: [
+      { say: 'Uh oh! The lights went out! It is so dark! Can you find the flashlight? Look for something glowing!', nag: 'Look for the glowing flashlight!', tap: 'q_flash', hint: [LX + 1240, 400],
+        done() { Q.drop('q_flash'); Q.flashGlow?.remove(); Q.carry(ART.flash); Q.flash = true; SFX.click(); say('You found the flashlight! Click! Now we can see!'); } },
+      { say: 'Let us find the light switch box. I think it is in the kitchen!', nag: 'The switch box is on the kitchen wall!', tap: 'q_brk', hint: [KX + 110, 300],
+        done() { const sw = things.q_brk.node.querySelector('.brkSw'); sw.setAttribute('fill', '#7dffa6'); sw.setAttribute('y', -62); SFX.clunk(); after(0.3, () => { Q.dark = false; darkRect.setAttribute('visibility', 'hidden'); Q.unCarry(); SFX.sparkle(); say('Click! The lights are back on!'); }); } },
+      { say: 'Let us have a glow party! Tap the floodlight!', tap: 'floodlight', hint: [LX + 150, 360],
+        done() { flood.mode = 2; SFX.disco(6); beep.danceT = 6; claire.danceT = 6; after(6, () => { flood.mode = 0; }); } },
+    ],
+    win: 'Hooray! You turned the lights back on, {n}! Glow party!',
+    cleanup() { Q.flashGlow?.remove(); } },
+
+  { id: 'sneaky', sticker: 'sneaky', at: BX + 400, bg: '#d6f5e0', art: ART.blipMini, artS: 2.2, artY: 250,
+    setup() { const b = Q.prop('q_snk', KX + 1060, 452, ART.blipMini, { hit: [100, 120], approach: false }); b.setAttribute('opacity', 0); Q.ant = spawnArt(`<path d="M0,0 q8,-16 -4,-26" stroke="${ink}" stroke-width="4" fill="none"/><circle class="o t" cx="-5" cy="-30" r="7" fill="#ff6fb5"/>`, KX + 1100, 202, qLayer); Q.ant.setAttribute('opacity', 0); },
+    steps: [
+      { say: 'Shhh! Someone sneaky is in the house! Let us look at the security camera in the kitchen. Tap the camera!', nag: 'Tap the security camera high on the kitchen wall!', tap: 'seccam', hint: [KX + 1490, 170],
+        done() { Q.ant.setAttribute('opacity', 1); sec.pip = 5; sec.focus = { x: KX + 1080, y: 210 }; SFX.click(); say('Look on the camera! Something green is wiggling by the fridge!'); after(5, () => { sec.focus = null; }); } },
+      { say: 'Tap the fridge to find the sneaky visitor!', tap: 'fridge', hint: [KX + 1060, 170],
+        done() { Q.ant.setAttribute('opacity', 0); if (!fridge.open) swingFridge(true); const b = things.q_snk.node; b.setAttribute('opacity', 1); const a = b.firstChild; tween(0.8, (q) => T(a, 0, -Math.abs(Math.sin(q * Math.PI * 2)) * 60)); fridge.wob = 2; gib('Bloop bloop!').then(() => say('It is Blip! Blip came to eat our jello! Silly Blip!')); claireLaugh(2); } },
+    ],
+    win: 'You found the sneaky visitor, {n}! Great detective work!',
+    cleanup() { if (fridge.open) swingFridge(false); Q.ant?.remove(); sec.focus = null; } },
+
+  { id: 'fixbeep', sticker: 'fixbeep', at: BX + 700, bg: '#e2dcff', art: ART.spring, artS: 3, artY: 220,
+    setup() { Q.glitch = true; },
+    steps: [
+      { say: 'Uh oh. My. Bat. Ter. Y. Is. Glitchy. I need a spring, a screw, and a battery. Can you find them?', voice: { pitch: 0.7, rate: 0.8 }, nag: 'Find the spring, the screw, and the battery!',
+        enter() { Q.prop('q_spring', LX + 600, 520, ART.spring, { hit: [100, 100] }); Q.prop('q_screw', KX + 580, 452, ART.screw, { hit: [100, 100] }); Q.prop('q_batt', BX + 200, 452, `<g transform="translate(0 -36)">${ITEM.battery}</g>`, { hit: [100, 110] }); },
+        collect: [['q_spring', [LX + 600, 400]], ['q_screw', [KX + 580, 340]], ['q_batt', [BX + 200, 330]]],
+        countLine: (n) => ['', 'You found one part! Two more!', 'Two parts! Just one more!'][n], allLine: 'You found all the parts!' },
+      { say: 'Now tap me to fix me!', voice: { pitch: 0.8, rate: 0.85 }, tap: 'beep', hint: () => { const p = beepHeadPos(); return [p.x, p.y - 130]; },
+        done() { Q.glitch = false; [0, 0.3, 0.6].forEach((s) => after(s, () => { SFX.zap(); const p = beepHeadPos(); burst(p.x, p.y, 20, 400); })); setFace('love', 4); after(1, () => say('Beep boop! I feel brand new!')); } },
+    ],
+    win: 'You fixed me, {n}! You are the best robot fixer ever!' },
+
+  { id: 'hideseek', sticker: 'hideseek', at: BX + 700, bg: '#ffe0f2', art: ART.zuzuPeek, artS: 2.4, artY: 220,
+    steps: [
+      { say: 'Blip, Zuzu, and Gloop came through the window to play hide and seek! They are hiding in your house! Can you find all three?', nag: 'Listen for giggles! Where are the aliens hiding?',
+        enter() { Q.prop('q_hb', LX + 520, 428, ART.blipPeek, { hit: [120, 110] }); Q.prop('q_hz', BX + 1330, 646, ART.zuzuPeek, { hit: [130, 90] }); Q.prop('q_hg', KX + 1060, 204, ART.gloopPeek, { hit: [120, 110] }); },
+        collect: [['q_hz', [BX + 1330, 540]], ['q_hg', [KX + 1060, 90]], ['q_hb', [LX + 520, 300]]],
+        each(id) { const p = things[id].node, [x, y] = p.getAttribute('transform').match(/-?[\d.]+/g).map(Number); const art = { q_hb: ART.blipMini, q_hz: ART.zuzuPeek, q_hg: ART.gloopPeek }[id];
+          const g = spawnArt(art, x, y); tween(1.6, (q) => { T(g, x, y - Math.sin(q * Math.PI) * 180, Math.sin(q * 20) * 10); g.setAttribute('opacity', q > 0.8 ? (1 - q) * 5 : 1); }, () => g.remove()); gib(pick(['Tee hee!', 'You found me!', 'Bloop!']), 2, 1.3); claireLaugh(1.4); },
+        countLine: (n) => ['', 'You found one! Two more aliens are hiding!', 'You found two! One more alien is hiding!'][n], allLine: 'You found all three aliens!', delay: 2.6 },
+    ],
+    win: 'You found everyone, {n}! You are the best hide and seek finder in the whole galaxy!' },
+
+  { id: 'birthday', sticker: 'cake', at: LX + 700, bg: '#fff0c8', art: ART.cake, artS: 1.9, artY: 230,
+    steps: [
+      { say: 'Guess what? It is my birthday! Can you make me a birthday card? Tap your craft table!', tap: 'crafts', hint: [BX + 430, 650],
+        done() { SFX.tape(); Q.carry(ART.card); ['#ff6fb5', '#ffd23f', '#5fd3ff', '#9b7cf0', '#7dffa6'].forEach((c, i) => Q.prop('q_bal' + i, LX + 240 + i * 260, 640, ART.balloon(c), { hit: [80, 170], approach: false, tap: () => { SFX.pop(); burst(LX + 240 + i * 260, 520, 14, 300, 700); Q.drop('q_bal' + i); } })); say('A birthday card! It is beautiful! And look, balloons in the living room!'); } },
+      { say: 'Now let us get the birthday cake! Is it in the fridge?', tap: 'fridge', hint: [KX + 1060, 170],
+        done() { if (!fridge.open) swingFridge(true); Q.unCarry(); Q.carry(ART.cake); say('Yummy! A birthday cake!'); } },
+      { say: 'Bring the cake to me! Tap me!', tap: 'beep', hint: () => { const p = beepHeadPos(); return [p.x, p.y - 130]; },
+        done() { Q.unCarry(); if (fridge.open) swingFridge(false); Q.prop('q_cake', claire.x + claire.dir * 140, 840, ART.cake, { hit: [140, 140], approach: false }); setFace('love', 3); say('Thank you! Now blow out the candles! Tap the cake!'); } },
+      { say: 'Blow out the candles! Tap the cake!', tap: 'q_cake', hint: () => { const n = things.q_cake?.node; const m = n ? n.getAttribute('transform').match(/-?[\d.]+/g).map(Number) : [claire.x, 840]; return [m[0], m[1] - 170]; },
+        done() { SFX.whoosh(); things.q_cake.node.querySelectorAll('.flame').forEach((f) => f.setAttribute('opacity', 0)); after(0.6, () => { melody(HBD, { bpm: 150, type: 'triangle', vol: 0.12 }); burst(claire.x, claire.y - 300, 70, 800); beep.danceT = 7; claire.danceT = 7; }); }, delay: 7.5 },
+    ],
+    win: 'Happy birthday to me! Thank you for the best party ever, {n}!' },
+
+  { id: 'storm', sticker: 'storm', at: BX + 700, bg: '#e2f4ff', art: `<g transform="translate(-32 -70)">${stickerInner('crafts')}</g>`, artS: 2.4, artY: 230,
+    setup() { fanS.on = 3; claire.windT = 3; noise(3, { freq: 600, q: 0.5, vol: 0.12 }); },
+    steps: [
+      { say: 'Whoosh! The fan blew your stickers all over the house! Can you find all five stickers?', nag: 'Look for your stickers! Count them with me!',
+        enter() { [['q_s1', LX + 380, 830, 'bear'], ['q_s2', LX + 1190, 362, 'beep'], ['q_s3', KX + 400, 452, 'toybot'], ['q_s4', KX + 1060, 202, 'window'], ['q_s5', BX + 1450, 430, 'lamp']].forEach(([id, x, y, k]) => Q.prop(id, x, y, `<g transform="translate(-32 -64) rotate(${rand(-15, 15).toFixed(0)} 32 32)">${stickerInner(k)}</g>`, { hit: [110, 110] })); },
+        collect: [['q_s1', [LX + 380, 700]], ['q_s2', [LX + 1190, 240]], ['q_s3', [KX + 400, 330]], ['q_s4', [KX + 1060, 80]], ['q_s5', [BX + 1450, 310]]],
+        each(id, n) { tone(N(72 + [0, 2, 4, 5, 7][n - 1]), 0.4, { type: 'triangle', vol: 0.14 }); },
+        countLine: (n, t) => `${['One', 'Two', 'Three', 'Four'][n - 1]}! ${t - n} more!`, allLine: 'Five! You found all five!' },
+    ],
+    win: 'Five stickers! You found them all, {n}! Great counting!' },
+
+  { id: 'rocketfix', sticker: 'rocketfix', scene: 'space', at: SX + 450, bg: '#2b1460', art: ART.fuel, artS: 2.4, artY: 230,
+    setup() { Q.rocketBroken = true; T(anim('rocket'), 0, 0, -8); },
+    steps: [
+      { say: 'Oh no! The rocket is broken! We need a bolt, a fin, and a can of rocket fuel. Can you find them on the moon?', nag: 'Find the bolt, the fin, and the rocket fuel!',
+        enter() { Q.prop('q_bolt', SX + 980, 820, ART.bolt, { hit: [100, 100] }); Q.prop('q_fin', SX + 1480, 830, ART.fin, { hit: [100, 100] }); Q.prop('q_fuel', SX + 1820, 830, ART.fuel, { hit: [100, 110] }); },
+        collect: [['q_bolt', [SX + 980, 700]], ['q_fin', [SX + 1480, 710]], ['q_fuel', [SX + 1820, 700]]],
+        countLine: (n) => ['', 'You found a part! Two more!', 'Two parts! One more!'][n], allLine: 'You found all the rocket parts!' },
+      { say: 'Now tap the rocket to fix it!', tap: 'rocket', hint: [SX + 2380, 400],
+        done() { Q.rocketBroken = false; [0, 0.3, 0.6, 0.9].forEach((s) => after(s, () => { SFX.clunk(); burst(SX + 2380, 560, 10, 300, 640); })); T(anim('rocket'), 0, 0, 0); say('Clank! Bonk! Twist! The rocket is fixed!'); } },
+      { say: 'Tap the rocket to blast off!', tap: 'rocket', hint: [SX + 2380, 400], done() { ROCKET[0](); }, delay: 8 },
+    ],
+    win: 'You fixed the rocket, {n}! What a great space mechanic!',
+    cleanup() { Q.rocketBroken = false; T(anim('rocket'), 0, 0, 0); } },
+
+  { id: 'sleepy', sticker: 'sleepy', scene: 'space', at: SX + 1300, bg: '#1d1550', art: `<circle class="o" cx="0" cy="-70" r="60" fill="#ffb08a"/><path d="M-26,-74 q10,8 20,0 M8,-74 q10,8 20,0" stroke="${ink}" stroke-width="5" fill="none"/><g transform="translate(0 -10) scale(.45)">${ART.blanket}</g>`, artS: 1.8, artY: 240,
+    setup() { bp.awake = true; el('bpSleep').style.display = 'none'; el('bpAwake').style.display = ''; },
+    steps: [
+      { say: 'The big planet cannot fall asleep. The UFO lights are too bright! Tap the UFO to turn off its lights.', tap: 'ufo', hint: () => [SX + 1300 + ufo.dx, 50],
+        done() { ufo.dark = true; SFX.click(); say('Shhh, UFO. Lights off.'); } },
+      { say: 'Now play a lullaby on the singing crystals!', tap: 'crystals', hint: [SX + 1150, 510],
+        done() { melody(TWINKLE, { bpm: 110, vol: 0.12 }); TWINKLE.forEach((_, i) => after(i * 0.55, () => { const c = el('cr' + (i % 3)), f0 = c.getAttribute('fill'); c.setAttribute('fill', '#fff'); after(0.2, () => c.setAttribute('fill', f0)); })); }, delay: 8 },
+      { say: 'Now tuck the planet in with a cozy blanket. Tap the planet!', tap: 'bigplanet', hint: [SX + 1950, 70],
+        done() { const b = Q.prop('q_blanket', SX + 1950, 352, ART.blanket, { hit: [10, 10], approach: false }); tween(0.8, (q) => T(b.firstChild, 0, (1 - easeOut(q)) * 200)); bp.awake = false; el('bpSleep').style.display = ''; el('bpAwake').style.display = 'none'; snore(); zzz(SX + 2060, 150); after(2.4, () => { snore(); zzz(SX + 2060, 150); }); say('Night night, planet. Sweet dreams.', { pitch: 1.3, rate: 0.85 }); }, delay: 4 },
+    ],
+    win: 'Shhh. The planet is fast asleep. You are so kind, {n}!',
+    cleanup() { ufo.dark = false; } },
+
+  { id: 'photohunt', sticker: 'photohunt', at: BX + 700, bg: '#fde4ff', art: ART.camera, artS: 3.2, artY: 220,
+    setup() { Q.carry(ART.camera); },
+    steps: [
+      { say: 'Photo hunt! Here is a camera! Can you take a picture of something PURPLE? Tap it!', nag: 'Find something purple and tap it!', tap: ['bear', 'bedPlush'], hint: [BX + 400, 190],
+        done() { snapView(); say('Click! A big purple bear! Great picture!'); } },
+      { say: 'Now take a picture of something ROUND! Round like a ball!', nag: 'Find something round, like a ball!', tap: ['chandelier', 'lamp'], hint: [BX + 1000, 330],
+        done() { snapView(); say('Click! Round, round lights! Great picture!'); } },
+      { say: 'Now take a picture of a ROBOT!', nag: 'Can you find a robot? Maybe the little one by the window?', tap: ['toybot', 'beep'], hint: [BX + 930, 340],
+        done(id) { snapView(); if (id === 'beep') setFace('happy', 2); say(id === 'beep' ? 'Click! A picture of me! Beep boop!' : 'Click! The little robot! Great picture!'); } },
+    ],
+    win: 'Three great photos, {n}! They are in your sticker book!',
+    cleanup() { Q.unCarry(); } },
+
+  { id: 'delivery', sticker: 'pet', at: LX + 900, bg: '#ffe9d6', art: ART.box, artS: 1.7, artY: 240,
+    setup() { Q.prop('q_door', KX + 100, 640, ART.door, { hit: [150, 420] }); },
+    steps: [
+      { say: 'Ding dong! Someone is at the door! Let us go see! Tap the door!', nag: 'Tap the door in the kitchen!', tap: 'q_door', hint: [KX + 100, 190],
+        enter() { dingdong(); after(2, dingdong); },
+        done() { const d = things.q_door.node.querySelector('.doorPanel'); tween(0.6, (q) => d.setAttribute('transform', `translate(-70 0) scale(${1 - q * 1.2} 1) translate(70 0)`)); SFX.clunk();
+          const b = Q.prop('q_box', KX + 100, 830, ART.box, { hit: [170, 150] }); tween(0.8, (q) => T(b.firstChild, -(1 - q) * 0, 0, 0, q, q)); say('A mystery box!'); } },
+      { say: 'Something is moving inside the box! Tap the box!', tap: 'q_box', times: 3, hint: [KX + 100, 640],
+        partial(c) { const a = things.q_box.node.firstChild; tween(0.5, (q) => T(a, 0, 0, Math.sin(q * Math.PI * 6) * 10)); tone(N(84), 0.1, { type: 'square', vol: 0.06 }); say(c === 1 ? 'It wiggled! Tap again!' : 'Something says beep! One more tap!'); },
+        done() { const lid = things.q_box.node.querySelector('.boxLid'); tween(0.8, (q) => lid.setAttribute('transform', `translate(${q * 120} ${-q * 160}) rotate(${q * 60})`)); SFX.boing();
+          const p = Q.prop('q_pet', KX + 100, 760, ART.pet, { hit: [100, 140], approach: false }); tween(0.8, (q) => T(p.firstChild, 0, -Math.sin(q * Math.PI) * 120)); melody([[84, 1], [88, 1], [91, 2]], { bpm: 400, type: 'square', vol: 0.06 }); say('It is a baby robot!'); } },
+      { say: 'Tap the baby robot to say hi!', tap: 'q_pet', hint: [KX + 100, 600],
+        done() { burst(KX + 100, 660, 30, 400); gib('Bip bip!', 2, 1.4).then(() => say('The baby robot loves you! Its name is Pip!')); } },
+    ],
+    win: 'You got a new robot friend, {n}! Pip will follow you everywhere!',
+    won() { Q.drop('q_pet'); try { localStorage.setItem('claire-pet', '1'); } catch {} pet = null; makePet(); pet.x = KX + 100; pet.y = 800; } },
+];
+const cardArt = (m) => `<svg viewBox="0 0 300 300"><rect width="300" height="300" fill="${m.bg}"/><g transform="translate(150 ${m.artY}) scale(${m.artS})">${m.art}</g></svg>`;
+
 const ADVENTURES = [
   { id: 'beeping', art: `<svg viewBox="0 0 300 300"><rect width="300" height="300" fill="#efe4f8"/><rect y="0" width="300" height="60" fill="url(#cardWater)"/><defs><pattern id="cardWater" width="80" height="60" patternUnits="userSpaceOnUse"><rect width="80" height="60" fill="#e8e1f4"/><ellipse cx="20" cy="20" rx="14" ry="6" fill="#b9c8ee"/><ellipse cx="60" cy="40" rx="12" ry="5" fill="#f2bfd6"/></pattern></defs><path d="M98,60 h104 a52,30 0 0 1 -104,0 z" fill="#fff" stroke="${ink}" stroke-width="7"/><circle cx="180" cy="72" r="8" fill="#ff3355"/><path d="M80,118 q70,50 140,0 M60,140 q90,70 180,0" stroke="#ffd23f" stroke-width="12" fill="none" stroke-linecap="round"/><g transform="translate(150 290) scale(.62)"><rect x="-60" y="-236" width="120" height="88" rx="26" fill="#beb2f4" stroke="${ink}" stroke-width="7"/><rect x="-48" y="-226" width="96" height="66" rx="16" fill="#24103d"/><circle cx="-20" cy="-196" r="10" fill="#7ff3ff"/><circle cx="20" cy="-196" r="10" fill="#7ff3ff"/><path d="M-18,-180 q18,16 36,0" stroke="#7ff3ff" stroke-width="7" fill="none" stroke-linecap="round"/><rect x="-48" y="-138" width="96" height="98" rx="30" fill="#d2ccf4" stroke="${ink}" stroke-width="7"/></g></svg>`, start: () => story.start() },
 ];
+ADVENTURES.push(...MISSIONS.map((m) => ({ id: m.id, art: cardArt(m), start: () => Q.start(m) })));
 function renderCards() {
   const wrap = $('#cards'); wrap.innerHTML = '';
   for (const a of ADVENTURES) {
@@ -1439,8 +1762,8 @@ world.addEventListener('pointerup', (e) => {
   if (moved > 24 || !playing) return;
   initAudio(); story.idle = 0; spaceIdle = 0;
   const tn = e.target.closest('[data-thing]');
-  if (tn) { const d = things[tn.dataset.thing]; if (!d) return; d.taps++; if (d.approach) walkTo(d.approach[0], d.approach[1]); d.tap(d); const sid = d.sticker || d.id; if (STICKERS[sid]) giveSticker(sid, d.node); return; }
-  if (e.target.closest('#claire')) { tapClaire(); return; }
+  if (tn) { const d = things[tn.dataset.thing]; if (!d) return; if (Q.handle(d.id)) { if (d.approach) walkTo(d.approach[0], d.approach[1]); return; } d.taps++; if (d.approach) walkTo(d.approach[0], d.approach[1]); d.tap(d); const sid = d.sticker || d.id; if (STICKERS[sid]) giveSticker(sid, d.node); return; }
+  if (e.target.closest('#claire')) { if (Q.handle('claire')) return; tapClaire(); return; }
   const p = toWorld(e.clientX, e.clientY);
   const y = p.y < FLOOR ? 740 : p.y; walkTo(p.x, y); const [bl, bh] = bounds(); ripple(clamp(p.x, bl, bh), clamp(y, 690, 870)); SFX.tap();
 });
@@ -1448,7 +1771,7 @@ world.addEventListener('pointerup', (e) => {
 /* buttons & overlays */
 const starsEl = $('#stars'); for (let i = 0; i < 40; i++) { const s = document.createElement('i'); s.style.left = rand(0, 100) + '%'; s.style.top = rand(0, 100) + '%'; s.style.animationDelay = rand(0, 2) + 's'; starsEl.appendChild(s); }
 $('#playBtn').addEventListener('click', () => { initAudio(); SFX.sparkle(); say('Hi {n}! Pick an adventure!'); $('#start').hidden = true; $('#homeBtn').hidden = false; $('#bookBtn').hidden = false; renderCards(); $('#picker').hidden = false; });
-$('#homeBtn').addEventListener('click', () => { initAudio(); SFX.pop(); playing = false; story.step = 'off'; story.token++; detector.chirpOn = false; setHint(null); renderCards(); $('#picker').hidden = false; say('Pick an adventure, {n}!'); });
+$('#homeBtn').addEventListener('click', () => { initAudio(); SFX.pop(); Q.end(); playing = false; story.step = 'off'; story.token++; detector.chirpOn = false; setHint(null); renderCards(); $('#picker').hidden = false; say('Pick an adventure, {n}!'); });
 function renderBook() {
   const slots = $('#slots'); slots.innerHTML = '';
   for (const id of Object.keys(STICKERS)) {
@@ -1490,7 +1813,7 @@ function frame(now) {
   for (let i = timers.length - 1; i >= 0; i--) { const tm = timers[i]; tm.t -= dt; if (tm.t <= 0) { timers.splice(i, 1); tm.fn(); } }
   updateClaire(dt, t); updateBeep(dt, t);
   for (const id in things) things[id].update?.(dt, t);
-  story.update(dt); updateStuck(dt); spaceTick(dt, Math.max(1250, 900 * innerWidth / innerHeight));
+  story.update(dt); updateStuck(dt); spaceTick(dt, Math.max(1250, 900 * innerWidth / innerHeight)); Q.update(dt, t);
   for (let i = confetti.length - 1; i >= 0; i--) { const c = confetti[i]; c.life -= dt; c.vy += (c.g ?? 1400) * dt; c.vx *= 0.985; c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vr * dt; if (c.y > c.floor) { c.y = c.floor; c.vx = 0; c.vy = 0; c.vr = 0; } c.el.setAttribute('transform', `translate(${c.x} ${c.y}) rotate(${c.rot})`); if (c.life < 0.5) c.el.setAttribute('opacity', Math.max(0, c.life * 2)); if (c.life <= 0) { c.el.remove(); confetti.splice(i, 1); } }
   if (hintTarget && scene === 'home') { const [hx, hy] = hintTarget.hint; const s = 1 + Math.sin(t * 6) * 0.12; hintStar.setAttribute('transform', `translate(${hx} ${hy + Math.sin(t * 4) * 12}) rotate(${Math.sin(t * 2) * 15}) scale(${s})`); }
 
@@ -1502,7 +1825,7 @@ function frame(now) {
 
   if (sec.pip > 0) {
     const w = Math.min(innerWidth * 0.34, 320), h = w * 0.75, x = innerWidth - w - 20, y = innerHeight - h - 20;
-    const p = claireHeadPos(); pip.setAttribute('viewBox', `${p.x - 260} ${p.y - 60} 520 390`);
+    const p = sec.focus || claireHeadPos(); pip.setAttribute('viewBox', `${p.x - 260} ${p.y - 60} 520 390`);
     Object.assign(pip.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' }); pip.hidden = false;
     Object.assign(pipFrame.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' }); pipFrame.hidden = false;
   } else { pip.hidden = true; pipFrame.hidden = true; }
